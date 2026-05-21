@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Provider {
+  id               String   @id
+  name             String
+  avatar           String
+  coverImage       String
+  category         String
+  experience       Int
+  rating           Float
+  reviewsCount     Int
+  pricePerHr       Int
+  aadhaarVerified  Boolean
+  phone            String
+  whatsapp         String
+  bioEn            String
+  bioHi            String
+  certificationsEn String   // JSON stringified array
+  certificationsHi String   // JSON stringified array
+  completedJobs    Int
+  city             String
+  areas            String   // JSON stringified array
+  gallery          String   // JSON stringified array
+
+  bookings         Booking[]
+  reviews          Review[]
+}
+
+model Booking {
+  id              String   @id
+  customerName    String
+  customerPhone   String
+  customerAddress String
+  city            String
+  serviceCategory String
+  providerId      String
+  provider        Provider @relation(fields: [providerId], references: [id])
+  providerName    String
+  providerAvatar  String
+  date            String
+  timeSlot        String
+  status          String   // 'pending' | 'accepted' | 'completed' | 'cancelled'
+  price           Int
+  notes           String?
+  appliedPromo    String?
+  paymentStatus   String   // 'paid' | 'pending' | 'refunded'
+}
+
+model Review {
+  id           String   @id
+  providerId   String
+  provider     Provider @relation(fields: [providerId], references: [id])
+  customerName String
+  rating       Int
+  commentEn    String
+  commentHi    String
+  date         String
+}
+
+model SupportTicket {
+  id        String   @id
+  subjectEn String
+  subjectHi String
+  status    String   // 'open' | 'resolved'
+  category  String
+  date      String
+}
+
+// NextAuth Models
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  phone         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          String    @default("CUSTOMER") // "CUSTOMER", "PROVIDER", "ADMIN"
+  walletBalance Float     @default(650.0)
+  notifications String    @default("[{\"id\":\"n1\",\"textEn\":\"Welcome to LocalFix! ₹100 added to your wallet.\",\"textHi\":\"लोकलफिक्स में आपका स्वागत है! आपके वॉलेट में ₹100 जोड़े गए हैं।\",\"time\":\"10 mins ago\",\"read\":false},{\"id\":\"n2\",\"textEn\":\"Booking request for Ramesh Kumar accepted!\",\"textHi\":\"रमेश कुमार के लिए बुकिंग अनुरोध स्वीकार कर लिया गया है!\",\"time\":\"1 hour ago\",\"read\":false}]")
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
