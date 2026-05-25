@@ -39,6 +39,8 @@ export default function ProviderView() {
     providers,
     setProviders,
     addNotification,
+    updateUserProfile,
+    user,
     t
   } = useStore();
 
@@ -56,6 +58,20 @@ export default function ProviderView() {
   const [city, setCity] = useState('');
   const [uploadState, setUploadState] = useState<'idle' | 'uploading' | 'completed'>('idle');
   const [aadhaarFile, setAadhaarFile] = useState<string | null>(null);
+
+  // Core profile local states
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+
+  // Sync basic user info when user store is loaded
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditEmail(user.email || '');
+    }
+  }, [user]);
 
   // Sync settings when provider data is loaded
   useEffect(() => {
@@ -161,6 +177,14 @@ export default function ProviderView() {
     if (!currentProvider) return;
 
     try {
+      // 1. First save basic user profile info (Name, Phone, Email)
+      const profileResult = await updateUserProfile(editName.trim(), editPhone.trim(), editEmail.trim());
+      if (!profileResult.success) {
+        alert(profileResult.error || "Failed to update profile credentials.");
+        return;
+      }
+
+      // 2. Next save Provider-specific pricing and operational areas
       const splitAreas = areasText.split(',').map(s => s.trim()).filter(Boolean);
       const res = await fetch(`/api/providers/${currentProvider.id}`, {
         method: 'PUT',
@@ -178,11 +202,11 @@ export default function ProviderView() {
         const updated = await res.json();
         setProviders(prev => prev.map(p => p.id === currentProvider.id ? updated : p));
         addNotification(
-          "Worker settings updated successfully in SQLite!",
-          "कर्मचारी सेटिंग्स सफलतापूर्वक SQLite में अपडेट की गईं!"
+          "Worker profile and settings updated successfully in SQLite!",
+          "कर्मचारी प्रोफ़ाइल और सेटिंग्स सफलतापूर्वक SQLite में अपडेट की गईं!"
         );
       } else {
-        alert("Failed to update profile settings.");
+        alert("Failed to update trade profile settings.");
       }
     } catch (err) {
       console.error(err);
@@ -541,6 +565,40 @@ export default function ProviderView() {
                 </div>
 
                 <form onSubmit={handleUpdateWorkerProfile} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Full Name</label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Email Address</label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Hourly Service Rate (₹)</label>
                     <div className="relative rounded-xl">

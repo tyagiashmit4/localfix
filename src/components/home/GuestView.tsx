@@ -10,7 +10,6 @@ import {
   ShieldCheck, 
   Clock, 
   MapPin, 
-  Smartphone, 
   Zap, 
   ChevronRight,
   TrendingUp,
@@ -329,39 +328,6 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
             </div>
             <h4 className="font-extrabold text-sm text-slate-950">{t('why3Title')}</h4>
             <p className="text-slate-500 text-xs leading-relaxed font-medium">{t('why3Desc')}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* DOWNLOAD APK AD BANNER */}
-      <section className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2rem] p-8 md:p-12 text-white grid grid-cols-1 md:grid-cols-12 gap-8 items-center shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_10%_80%,rgba(255,255,255,0.06),transparent_30%)]"></div>
-        <div className="md:col-span-8 space-y-4 relative z-10">
-          <h3 className="text-2xl md:text-3xl font-black tracking-tight">
-            {t('downloadApp')}
-          </h3>
-          <p className="text-blue-100 text-xs md:text-sm font-medium max-w-xl">
-            {t('downloadSub')}
-          </p>
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button 
-              onClick={() => alert("Lightweight APK Download Initiated! Package Size: 6.8MB. Optimized for 4G/5G mobile devices.")}
-              className="py-3 px-6 bg-white hover:bg-slate-50 text-slate-900 font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all transform active:scale-95 cursor-pointer"
-            >
-              <span>Download APK</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <span className="text-[10px] text-blue-200 flex items-center font-bold">
-              ★ Google Play Protect Verified
-            </span>
-          </div>
-        </div>
-        <div className="md:col-span-4 flex justify-center relative z-10">
-          <div className="w-32 h-32 bg-white p-2.5 rounded-2xl flex items-center justify-center border-4 border-blue-500 shadow-md">
-            <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center text-[10px] text-slate-500 font-bold text-center gap-1.5">
-              <span className="text-[42px] leading-none">📱</span>
-              <span>Scan QR Code</span>
-            </div>
           </div>
         </div>
       </section>

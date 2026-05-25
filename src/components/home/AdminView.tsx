@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Bell,
@@ -33,15 +33,45 @@ export default function AdminView() {
     setProviders,
     addNotification,
     supportTickets,
-    setSupportTickets
+    setSupportTickets,
+    user,
+    updateUserProfile
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'disputes' | 'providers' | 'broadcast'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'disputes' | 'providers' | 'broadcast' | 'settings'>('overview');
   
   // Custom admin states
   const [customNotificationEn, setCustomNotificationEn] = useState('');
   const [customNotificationHi, setCustomNotificationHi] = useState('');
   const [adminSelectedProvider, setAdminSelectedProvider] = useState<Provider | null>(null);
+
+  // Admin profile states
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync admin profile details
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name || '');
+      setEditPhone(user.phone || '');
+      setEditEmail(user.email || '');
+    }
+  }, [user]);
+
+  // Handle profile save
+  const handleUpdateAdminProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    const result = await updateUserProfile(editName.trim(), editPhone.trim(), editEmail.trim());
+    setIsSaving(false);
+    if (result.success) {
+      alert("Admin profile updated successfully!");
+    } else {
+      alert(result.error || "Failed to update admin profile.");
+    }
+  };
 
   // Computed stats
   const unverifiedProviders = providers.filter(p => !p.aadhaarVerified);
@@ -136,7 +166,7 @@ export default function AdminView() {
                 AD
               </div>
               <div className="flex-1 min-w-0">
-                <span className="block text-sm font-black text-slate-100 truncate">Platform Admin</span>
+                <span className="block text-sm font-black text-slate-100 truncate">{user?.name || 'Platform Admin'}</span>
                 <span className="block text-[10px] text-slate-400 font-bold capitalize truncate">
                   Master Console
                 </span>
@@ -227,6 +257,20 @@ export default function AdminView() {
               <div className="flex items-center gap-2.5">
                 <Bell className="w-4 h-4" />
                 <span>Broadcast Terminal</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-slate-700 text-white shadow-lg shadow-slate-800/20'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Settings className="w-4 h-4" />
+                <span>Admin Settings</span>
               </div>
             </button>
           </nav>
@@ -643,6 +687,60 @@ export default function AdminView() {
             </form>
           </div>
         )}
+
+        {activeTab === 'settings' && (
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 space-y-4">
+            <div>
+              <h2 className="text-base font-black text-slate-900">Admin Settings</h2>
+              <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Manage your administrator account credentials.</p>
+            </div>
+
+            <form onSubmit={handleUpdateAdminProfile} className="space-y-4 max-w-xl">
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Full Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Email Address</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    className="w-full text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="py-3 px-6 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-extrabold rounded-2xl text-xs shadow-md cursor-pointer transition-colors"
+              >
+                {isSaving ? 'Saving Changes...' : 'Save Profile Changes'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Global Aadhaar biometric verification modal overlay */}
         {adminSelectedProvider && (
           <div onClick={() => setAdminSelectedProvider(null)} className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
