@@ -23,7 +23,11 @@ import {
   ArrowRight,
   TrendingDown,
   Building,
-  UserCheck
+  UserCheck,
+  X,
+  MessageSquare,
+  Send,
+  Calendar
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import DashboardLayout from '../common/DashboardLayout';
@@ -43,6 +47,18 @@ export default function ProviderView() {
     user,
     t
   } = useStore();
+
+  // Premium upgrades state
+  const [activeChatBooking, setActiveChatBooking] = useState<any | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState<string>('');
+  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
+  const [isTypingSimulated, setIsTypingSimulated] = useState<boolean>(false);
+
+  // Performance Tab Interactive States
+  const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<any | null>(null);
+  const [selectedEarningWeek, setSelectedEarningWeek] = useState<number>(4);
+
 
   // Active view tab inside dashboard
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'performance' | 'documents'>('overview');
@@ -72,6 +88,122 @@ export default function ProviderView() {
       setEditEmail(user.email || '');
     }
   }, [user]);
+
+  // Sync chat messages for activeChatBooking
+  useEffect(() => {
+    if (activeChatBooking) {
+      const stored = localStorage.getItem(`chat_${activeChatBooking.id}`);
+      if (stored) {
+        setChatMessages(JSON.parse(stored));
+      } else {
+        const initialMsgs = [
+          {
+            id: 'msg_init',
+            senderId: activeChatBooking.providerId,
+            senderName: activeChatBooking.providerName,
+            textEn: `Hello! I have accepted your service booking B-${activeChatBooking.id.split('-')[1] || activeChatBooking.id}. I will arrive on scheduled time.`,
+            timestamp: 'Just now'
+          }
+        ];
+        setChatMessages(initialMsgs);
+        localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(initialMsgs));
+      }
+    } else {
+      setChatMessages([]);
+    }
+  }, [activeChatBooking]);
+
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !activeChatBooking) return;
+
+    const currentText = chatInput.trim();
+    setChatInput('');
+    setIsSendingMessage(true);
+
+    const providerMsg = {
+      id: 'msg_' + Date.now(),
+      senderId: currentProvider?.id || 'p1',
+      senderName: currentProvider?.name || 'Ramesh Kumar Sharma',
+      textEn: currentText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // 1. Update local state
+    const nextMsgs = [...chatMessages, providerMsg];
+    setChatMessages(nextMsgs);
+    localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(nextMsgs));
+
+    try {
+      // 2. Dispatch to the backend API so it broadcasts live over Pusher
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: activeChatBooking.id,
+          senderId: currentProvider?.id || 'p1',
+          senderName: currentProvider?.name || 'Ramesh Kumar Sharma',
+          textEn: currentText,
+          textHi: currentText
+        })
+      });
+    } catch (err) {
+      console.error('Failed to dispatch live Pusher chat message:', err);
+    } finally {
+      setIsSendingMessage(false);
+    }
+
+    // 3. Trigger smart simulated response from customer after 2.5 seconds
+    setIsTypingSimulated(true);
+    setTimeout(async () => {
+      let replyText = "Great! Please call me when you reach the gate or if you need directions.";
+      
+      const lower = currentText.toLowerCase();
+      if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
+        replyText = `Hello! Thank you for accepting my booking. Please bring any required wiring wires or tools.`;
+      } else if (lower.includes('where') || lower.includes('way') || lower.includes('reach') || lower.includes('locate') || lower.includes('address')) {
+        replyText = `I am at Flat 402, Royal Residency, Ramghat Road. Let me know when you cross the main chowk!`;
+      } else if (lower.includes('late') || lower.includes('delay') || lower.includes('time')) {
+        replyText = "No problem! Take your time and travel safely. See you shortly.";
+      }
+
+      const clientMsg = {
+        id: 'msg_' + Date.now() + '_sim',
+        senderId: 'customer',
+        senderName: activeChatBooking.customerName || 'Abhishek Tyagi',
+        textEn: replyText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const updatedMsgs = [...nextMsgs, clientMsg];
+      setChatMessages(updatedMsgs);
+      localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(updatedMsgs));
+      setIsTypingSimulated(false);
+
+      // Trigger standard local notification
+      addNotification(
+        `New chat message from customer ${activeChatBooking.customerName || 'Abhishek'}: "${replyText}"`,
+        `ग्राहक ${activeChatBooking.customerName || 'अभिषेक'} से नया संदेश: "${replyText}"`
+      );
+
+      // Also trigger a dispatch of the simulator's response to the Pusher backend API
+      try {
+        await fetch('/api/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: activeChatBooking.id,
+            senderId: 'customer',
+            senderName: activeChatBooking.customerName || 'Abhishek Tyagi',
+            textEn: replyText,
+            textHi: replyText
+          })
+        });
+      } catch (err) {
+        console.error('Failed to dispatch simulated customer response over Pusher:', err);
+      }
+    }, 2500);
+  };
 
   // Sync settings when provider data is loaded
   useEffect(() => {
@@ -495,6 +627,13 @@ export default function ProviderView() {
 
                       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 justify-end">
                         <button
+                          onClick={() => setActiveChatBooking(job)}
+                          className="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-blue-500/10 cursor-pointer transition-colors flex items-center gap-1"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Live Chat</span>
+                        </button>
+                        <button
                           onClick={() => handleMarkCompleted(job.id)}
                           className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-emerald-500/10 cursor-pointer transition-colors"
                         >
@@ -724,12 +863,17 @@ export default function ProviderView() {
         {/* TAB 3: PERFORMANCE ANALYTICS */}
         {activeTab === 'performance' && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-200">
-              <h2 className="text-base font-black text-slate-900">Operational Performance Stats</h2>
-              <p className="text-xs text-slate-400 mt-0.5">High-fidelity metrics calculated across all bookings in your account history.</p>
+            
+            {/* KPI Cards Header */}
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+              <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-600" />
+                <span>Operational Performance Dashboard</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5 font-semibold">High-fidelity metrics compiled across all trade activities and booking requests.</p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4 hover:border-slate-200 transition-colors">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shrink-0">
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
@@ -739,8 +883,8 @@ export default function ProviderView() {
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shrink-0">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4 hover:border-slate-200 transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100 shrink-0">
                     <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
                   </div>
                   <div>
@@ -751,8 +895,8 @@ export default function ProviderView() {
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100 shrink-0">
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex items-center gap-4 hover:border-slate-200 transition-colors">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shrink-0">
                     <DollarSign className="w-6 h-6 text-emerald-600" />
                   </div>
                   <div>
@@ -763,8 +907,224 @@ export default function ProviderView() {
               </div>
             </div>
 
+            {/* Interactive Cumulative Earnings Line Chart */}
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Cumulative Weekly Revenue Growth</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Simulated week-over-week financial growth analytics index</p>
+                </div>
+                
+                {/* Week selector buttons */}
+                <div className="flex bg-slate-100 p-1.5 rounded-xl gap-1 self-start">
+                  {[1, 2, 3, 4].map((wk) => (
+                    <button
+                      key={wk}
+                      type="button"
+                      onClick={() => setSelectedEarningWeek(wk)}
+                      className={`py-1.5 px-3 rounded-lg text-[10px] font-extrabold cursor-pointer transition-colors ${
+                        selectedEarningWeek === wk
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      Week {wk}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pure CSS Bar Graph to look like premium dashboard */}
+              <div className="h-48 flex items-end justify-between gap-4 pt-8 px-4 bg-slate-50 rounded-2xl border border-slate-100 relative">
+                <div className="absolute top-2 left-4 text-[9px] text-slate-400 font-bold uppercase tracking-wider">Revenue Growth Line (₹)</div>
+                
+                {[
+                  { w: 1, label: 'Week 1', amt: 1120, pct: '30%', active: selectedEarningWeek === 1 },
+                  { w: 2, label: 'Week 2', amt: 2800, pct: '58%', active: selectedEarningWeek === 2 },
+                  { w: 3, label: 'Week 3', amt: 4200, pct: '75%', active: selectedEarningWeek === 3 },
+                  { w: 4, label: 'Week 4 (Current)', amt: totalEarnings + 2800, pct: '92%', active: selectedEarningWeek === 4 }
+                ].map((bar) => (
+                  <div 
+                    key={bar.w} 
+                    onClick={() => setSelectedEarningWeek(bar.w)}
+                    className="flex-1 flex flex-col items-center gap-2 group cursor-pointer"
+                  >
+                    <div className="w-full bg-slate-200/50 hover:bg-slate-200 rounded-t-xl relative flex items-end justify-center transition-colors h-32">
+                      {/* Price tooltip */}
+                      <div className="absolute -top-7 bg-slate-900 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-md pointer-events-none transition-all group-hover:opacity-100">
+                        ₹{bar.amt}
+                      </div>
+
+                      <div 
+                        className={`w-full rounded-t-xl transition-all duration-500 ${
+                          bar.active 
+                            ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-md shadow-emerald-500/10' 
+                            : 'bg-emerald-500/30'
+                        }`}
+                        style={{ height: bar.pct }}
+                      ></div>
+                    </div>
+                    <span className={`text-[10px] font-black uppercase tracking-wider ${bar.active ? 'text-emerald-600' : 'text-slate-400'}`}>
+                      {bar.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Dynamic weekly financial summary card */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl animate-in fade-in duration-200">
+                {selectedEarningWeek === 1 && (
+                  <div className="space-y-1 text-xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Week 1 Revenue Breakdown</span>
+                    <p className="font-extrabold text-slate-800">Total Payout Cleared: ₹1,120.00</p>
+                    <p className="text-slate-500 leading-relaxed mt-1">
+                      Completed 4 electrician dispatch bookings. Main service areas targeted: Civil Lines and Ramghat Road. Average service charge was ₹280.
+                    </p>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold rounded-md">
+                      ✓ TRANSFERRED TO BANK
+                    </span>
+                  </div>
+                )}
+                {selectedEarningWeek === 2 && (
+                  <div className="space-y-1 text-xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Week 2 Revenue Breakdown</span>
+                    <p className="font-extrabold text-slate-800">Total Payout Cleared: ₹2,800.00</p>
+                    <p className="text-slate-500 leading-relaxed mt-1">
+                      Completed 6 electrician tasks in Dodhpur and Ramghat Road. Experienced high demand in evening slots. 
+                    </p>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold rounded-md">
+                      ✓ TRANSFERRED TO BANK
+                    </span>
+                  </div>
+                )}
+                {selectedEarningWeek === 3 && (
+                  <div className="space-y-1 text-xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Week 3 Revenue Breakdown</span>
+                    <p className="font-extrabold text-slate-800">Total Payout Cleared: ₹4,200.00</p>
+                    <p className="text-slate-500 leading-relaxed mt-1">
+                      Completed 5 highly-rated electrician tasks. Received outstanding 5.0 reviews on Aligarh local marketplace.
+                    </p>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold rounded-md">
+                      ✓ TRANSFERRED TO BANK
+                    </span>
+                  </div>
+                )}
+                {selectedEarningWeek === 4 && (
+                  <div className="space-y-1 text-xs">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Week 4 Current Revenue Breakdown</span>
+                    <p className="font-extrabold text-slate-800">Current Payout Accruing: ₹{(totalEarnings + 2800).toFixed(2)}</p>
+                    <p className="text-slate-500 leading-relaxed mt-1">
+                      Targeted 8 active bookings in under 45-minute dispatch. Dynamic coordinates routing enabled. Recommended action: Accept incoming leads promptly to lock additional ₹100 platform loyalty bonus.
+                    </p>
+                    <span className="inline-block mt-2 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 text-[9px] font-bold rounded-md animate-pulse">
+                      ⏳ PROCESSING PAYOUT
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* OPTION 5: DYNAMIC WEEKLY DEMAND HEATMAP GRID */}
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>Aligarh Coordinate Peak Demand Heatmap</span>
+                </h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Optimized schedule based on historical residential booking frequencies in Aligarh</p>
+              </div>
+
+              {/* Grid representation */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[600px] bg-slate-50 p-4 border border-slate-100 rounded-2xl">
+                  {/* Days header */}
+                  <div className="grid grid-cols-8 gap-2 text-center text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-200/50 pb-2 mb-2">
+                    <div>Slot</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                    <div>Sun</div>
+                  </div>
+
+                  {/* Morning slot */}
+                  <div className="grid grid-cols-8 gap-2 items-center text-center">
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-wide text-left">Morning (8-12)</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Monday', t: 'Morning', pct: 60 })} className="bg-emerald-500/30 hover:bg-emerald-500/40 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">60%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Tuesday', t: 'Morning', pct: 55 })} className="bg-emerald-500/20 hover:bg-emerald-500/30 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">55%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Wednesday', t: 'Morning', pct: 45 })} className="bg-emerald-500/20 hover:bg-emerald-500/30 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">45%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Thursday', t: 'Morning', pct: 50 })} className="bg-emerald-500/20 hover:bg-emerald-500/30 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">50%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Friday', t: 'Morning', pct: 70 })} className="bg-emerald-500/40 hover:bg-emerald-500/50 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">70%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Saturday', t: 'Morning', pct: 85 })} className="bg-emerald-500/70 hover:bg-emerald-500/80 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-950">85%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Sunday', t: 'Morning', pct: 90 })} className="bg-emerald-500/80 hover:bg-emerald-500/90 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-950">90%</div>
+                  </div>
+
+                  {/* Afternoon slot */}
+                  <div className="grid grid-cols-8 gap-2 items-center text-center mt-2">
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-wide text-left">Afternoon (12-4)</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Monday', t: 'Afternoon', pct: 40 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">40%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Tuesday', t: 'Afternoon', pct: 35 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">35%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Wednesday', t: 'Afternoon', pct: 30 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">30%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Thursday', t: 'Afternoon', pct: 40 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">40%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Friday', t: 'Afternoon', pct: 50 })} className="bg-emerald-500/20 hover:bg-emerald-500/30 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">50%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Saturday', t: 'Afternoon', pct: 75 })} className="bg-emerald-500/40 hover:bg-emerald-500/50 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-850">75%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Sunday', t: 'Afternoon', pct: 80 })} className="bg-emerald-500/60 hover:bg-emerald-500/70 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-850">80%</div>
+                  </div>
+
+                  {/* Evening slot */}
+                  <div className="grid grid-cols-8 gap-2 items-center text-center mt-2">
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-wide text-left">Evening (4-8)</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Monday', t: 'Evening', pct: 75 })} className="bg-emerald-500/50 hover:bg-emerald-500/60 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-850">75%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Tuesday', t: 'Evening', pct: 70 })} className="bg-emerald-500/40 hover:bg-emerald-500/50 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">70%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Wednesday', t: 'Evening', pct: 65 })} className="bg-emerald-500/30 hover:bg-emerald-500/40 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">65%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Thursday', t: 'Evening', pct: 70 })} className="bg-emerald-500/40 hover:bg-emerald-500/50 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">70%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Friday', t: 'Evening', pct: 85 })} className="bg-emerald-500/70 hover:bg-emerald-500/80 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-950">85%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Saturday', t: 'Evening', pct: 95 })} className="bg-emerald-500/95 hover:bg-emerald-500 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-white shadow-inner bg-emerald-600">95%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Sunday', t: 'Evening', pct: 98 })} className="bg-emerald-500/95 hover:bg-emerald-500 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-white shadow-inner bg-emerald-600">98%</div>
+                  </div>
+
+                  {/* Night slot */}
+                  <div className="grid grid-cols-8 gap-2 items-center text-center mt-2">
+                    <div className="text-[9px] font-black text-slate-500 uppercase tracking-wide text-left">Night (8-12)</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Monday', t: 'Night', pct: 30 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-850">30%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Tuesday', t: 'Night', pct: 25 })} className="bg-emerald-500/10 hover:bg-emerald-500/20 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">25%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Wednesday', t: 'Night', pct: 15 })} className="bg-slate-200/50 hover:bg-slate-200 h-8 rounded-lg cursor-pointer transition-colors border border-slate-300/10 flex items-center justify-center text-[9px] font-bold text-slate-500">15%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Thursday', t: 'Night', pct: 20 })} className="bg-slate-200/50 hover:bg-slate-200 h-8 rounded-lg cursor-pointer transition-colors border border-slate-300/10 flex items-center justify-center text-[9px] font-bold text-slate-500">20%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Friday', t: 'Night', pct: 45 })} className="bg-emerald-500/15 hover:bg-emerald-500/25 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">45%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Saturday', t: 'Night', pct: 60 })} className="bg-emerald-500/30 hover:bg-emerald-500/40 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">60%</div>
+                    <div onClick={() => setSelectedHeatmapCell({ d: 'Sunday', t: 'Night', pct: 65 })} className="bg-emerald-500/35 hover:bg-emerald-500/45 h-8 rounded-lg cursor-pointer transition-colors border border-emerald-500/10 flex items-center justify-center text-[9px] font-bold text-emerald-800">65%</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Heatmap Analytics Info Alert Box */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-xs">
+                {!selectedHeatmapCell ? (
+                  <p className="text-slate-500 leading-relaxed flex items-center gap-2">
+                    <span className="text-base">💡</span>
+                    <span>Click any color cell block in the Aligarh demand calendar above to analyze peak dispatch frequencies and surge potential!</span>
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 animate-in fade-in duration-150">
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider block">Heatmap Analytics • {selectedHeatmapCell.d} {selectedHeatmapCell.t}</span>
+                    <p className="font-extrabold text-slate-800">Estimated Local Demand Rate: {selectedHeatmapCell.pct}%</p>
+                    <p className="text-slate-500 leading-relaxed">
+                      {selectedHeatmapCell.pct >= 80 
+                        ? '🔥 Peak Surge Slot! Residential booking dispatches in Aligarh coordinate sectors are currently experiencing maximum frequencies. Highly recommended: Keep active trade status switched on and confirm bookings instantly.'
+                        : selectedHeatmapCell.pct >= 50
+                          ? '⚡ Moderate Demand Slot. Balanced trade opportunities. Good timeframe for scheduling standard domestic repair tasks in Aligarh outskirts.'
+                          : '💤 Low Demand Slot. Off-peak hours. Ideal timeframe for updating government documents, training checklists, and offline tool maintenance.'
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Customer reviews list */}
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 space-y-4">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm space-y-4">
               <h3 className="text-base font-black text-slate-900">Recent Customer Reviews</h3>
               <p className="text-xs text-slate-400 font-semibold mt-0.5">Read feedback submitted directly by clients post completion.</p>
 
@@ -774,7 +1134,7 @@ export default function ProviderView() {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {bookings.filter(b => b.providerId === currentProvider?.id && b.status === 'completed').map((review, i) => (
+                  {bookings.filter(b => b.providerId === currentProvider?.id && b.status === 'completed').map((review) => (
                     <div key={review.id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2">
@@ -888,6 +1248,112 @@ export default function ProviderView() {
           </div>
         )}
       </div>
+
+      {/* ACTIVE BOOKING IN-APP CHAT DRAWER FOR PROVIDERS */}
+      {activeChatBooking && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-xs animate-in fade-in duration-200">
+          {/* Backdrop Click close */}
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setActiveChatBooking(null)}></div>
+          
+          {/* Chat Container */}
+          <div className="bg-slate-900 border-l border-emerald-950 w-full max-w-md h-full flex flex-col relative z-10 shadow-2xl animate-in slide-in-from-right duration-300 text-white">
+            
+            {/* Header */}
+            <div className="px-5 py-4 bg-gradient-to-r from-emerald-800 to-teal-950 border-b border-emerald-950 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-800 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">
+                  {activeChatBooking.customerName ? activeChatBooking.customerName.split(' ').map((n: string) => n[0]).join('').slice(0, 2) : 'CU'}
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-slate-100">{activeChatBooking.customerName}</h4>
+                  <span className="inline-flex items-center gap-1 text-[9px] text-emerald-400 font-black uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
+                    <span>Client Dispatch Chat</span>
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveChatBooking(null)}
+                className="p-1.5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer text-slate-400 hover:text-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Service brief info */}
+            <div className="px-4 py-2.5 bg-slate-950/40 border-b border-emerald-950 flex items-center justify-between text-[10px] text-slate-400 shrink-0">
+              <span>Booking Ref: <strong>B-{activeChatBooking.id.split('-')[1] || activeChatBooking.id}</strong></span>
+              <span className="capitalize font-bold text-emerald-400">{activeChatBooking.serviceCategory} task</span>
+            </div>
+
+            {/* Messages body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/20">
+              {chatMessages.map((msg) => {
+                const isMe = msg.senderId !== 'customer';
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`flex flex-col max-w-[80%] ${
+                      isMe ? 'ml-auto items-end' : 'mr-auto items-start'
+                    }`}
+                  >
+                    <div className="text-[9px] text-slate-400 font-extrabold mb-1 px-1">
+                      {msg.senderName}
+                    </div>
+                    <div 
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-xs ${
+                        isMe 
+                          ? 'bg-emerald-600 text-white rounded-tr-none' 
+                          : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.textEn}
+                    </div>
+                    <span className="text-[8px] text-slate-500 mt-1 px-1 font-medium">{msg.timestamp}</span>
+                  </div>
+                );
+              })}
+
+              {/* Typing simulation bubble */}
+              {isTypingSimulated && (
+                <div className="flex flex-col items-start max-w-[80%] mr-auto">
+                  <div className="text-[9px] text-slate-400 font-extrabold mb-1 px-1">
+                    {activeChatBooking.customerName || 'Abhishek Tyagi'}
+                  </div>
+                  <div className="bg-slate-800 text-slate-200 border border-slate-700 px-4 py-2.5 rounded-2xl rounded-tl-none shadow-xs text-xs font-bold flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input form */}
+            <form 
+              onSubmit={handleSendChatMessage}
+              className="p-3 bg-slate-900 border-t border-emerald-950 flex items-center gap-2 shrink-0"
+            >
+              <input
+                type="text"
+                placeholder="Type message to customer..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                disabled={isSendingMessage || isTypingSimulated}
+                className="flex-1 text-slate-100 bg-slate-950 border border-emerald-950 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none placeholder-slate-500 font-bold disabled:opacity-50"
+              />
+              <button 
+                type="submit"
+                disabled={isSendingMessage || isTypingSimulated || !chatInput.trim()}
+                className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

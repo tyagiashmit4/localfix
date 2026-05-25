@@ -39,6 +39,11 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
       .map(item => item.provider);
   };
 
+  const getSimulatedDistance = (id: string) => {
+    const sum = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return ((sum % 13) * 0.2 + 0.4).toFixed(1); // 0.4 km to 2.8 km
+  };
+
   const handleSelectCategory = (catId: string) => {
     useStore.setState({ currentCategory: catId });
     router.push('/providers');
@@ -70,7 +75,7 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
       
       {/* Sub-nav search header banner */}
       <HeaderBanner />
-
+ 
       {/* HERO HERO SECTION REDESIGN */}
       <section className="relative rounded-[2.5rem] bg-gradient-to-tr from-slate-900 via-slate-800 to-indigo-950 p-8 md:p-12 lg:p-16 text-white overflow-hidden shadow-2xl border border-indigo-900/40">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(99,102,241,0.15),transparent_40%)]"></div>
@@ -241,6 +246,9 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
                       {lang === 'en' 
                         ? serviceCategories.find(c => c.id === rec.category)?.nameEn 
                         : serviceCategories.find(c => c.id === rec.category)?.nameHi}
+                    </span>
+                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase bg-indigo-500/20 text-indigo-200 border border-indigo-500/10">
+                      📍 {rec.areas && Array.isArray(rec.areas) && rec.areas[0] ? rec.areas[0] : (typeof rec.areas === 'string' && JSON.parse(rec.areas)[0] ? JSON.parse(rec.areas)[0] : 'Civil Lines')} • {getSimulatedDistance(rec.id)} km
                     </span>
                   </div>
                 </div>

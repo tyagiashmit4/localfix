@@ -21,7 +21,10 @@ import {
   TrendingUp,
   CheckCircle2,
   ChevronRight,
-  Briefcase
+  Briefcase,
+  X,
+  MessageSquare,
+  Printer
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { SupportTicket } from '../../app/data';
@@ -52,7 +55,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
     addNotification,
     t,
     user,
-    updateUserProfile
+    updateUserProfile,
+    fetchInitialData
   } = useStore();
 
   const [ticketSubject, setTicketSubject] = useState('');
@@ -66,6 +70,48 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
   const [formError, setFormError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
+  // Premium upgrades modal and chat states
+  const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<any | null>(null);
+  const [selectedReviewBooking, setSelectedReviewBooking] = useState<any | null>(null);
+  const [activeChatBooking, setActiveChatBooking] = useState<any | null>(null);
+  
+  // Review submission states
+  const [reviewRating, setReviewRating] = useState<number>(5);
+  const [reviewRatingHover, setReviewRatingHover] = useState<number>(0);
+  const [reviewComment, setReviewComment] = useState<string>('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+  const [reviewError, setReviewError] = useState<string>('');
+
+  // Chat states
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState<string>('');
+  const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
+  const [isTypingSimulated, setIsTypingSimulated] = useState<boolean>(false);
+
+  // Sync chat history from localStorage
+  React.useEffect(() => {
+    if (activeChatBooking) {
+      const stored = localStorage.getItem(`chat_${activeChatBooking.id}`);
+      if (stored) {
+        setChatMessages(JSON.parse(stored));
+      } else {
+        const initialMsgs = [
+          {
+            id: 'msg_init',
+            senderId: activeChatBooking.providerId,
+            senderName: activeChatBooking.providerName,
+            textEn: `Hello! I have accepted your service booking B-${activeChatBooking.id.split('-')[1] || activeChatBooking.id}. I will arrive on scheduled time.`,
+            timestamp: 'Just now'
+          }
+        ];
+        setChatMessages(initialMsgs);
+        localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(initialMsgs));
+      }
+    } else {
+      setChatMessages([]);
+    }
+  }, [activeChatBooking]);
+
   const handleStartEditProfile = () => {
     setEditName(user?.name || 'Abhishek Tyagi');
     setEditPhone(user?.phone || '+91 99887 76655');
@@ -73,6 +119,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
     setFormError('');
     setIsEditingProfile(true);
   };
+
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,10 +162,144 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
     const result = await updateUserProfile(editName.trim(), cleanPhone, cleanEmail);
     setIsSavingProfile(false);
 
-    if (result.success) {
-      setIsEditingProfile(false);
-    } else {
-      setFormError(result.error || 'Failed to save profile. Please try again.');
+  };
+
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !activeChatBooking) return;
+
+    const currentText = chatInput.trim();
+    setChatInput('');
+    setIsSendingMessage(true);
+
+    const clientMsg = {
+      id: 'msg_' + Date.now(),
+      senderId: 'customer',
+      senderName: user?.name || 'Abhishek Tyagi',
+      textEn: currentText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    // 1. Update local state
+    const nextMsgs = [...chatMessages, clientMsg];
+    setChatMessages(nextMsgs);
+    localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(nextMsgs));
+
+    try {
+      // 2. Dispatch to the backend API so it broadcasts live over Pusher
+      await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: activeChatBooking.id,
+          senderId: 'customer',
+          senderName: user?.name || 'Abhishek Tyagi',
+          textEn: currentText,
+          textHi: currentText
+        })
+      });
+    } catch (err) {
+      console.error('Failed to dispatch live Pusher chat message:', err);
+    } finally {
+      setIsSendingMessage(false);
+    }
+
+    // 3. Trigger premium smart simulated response from provider after 2.5 seconds
+    setIsTypingSimulated(true);
+    setTimeout(async () => {
+      let replyText = "Sure! I'm on my way and will reach your address shortly.";
+      
+      const lower = currentText.toLowerCase();
+      if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
+        replyText = `Hello ${user?.name || 'Abhishek'}! I have loaded all the required tools and parts for the service.`;
+      } else if (lower.includes('where') || lower.includes('reach') || lower.includes('time') || lower.includes('status')) {
+        replyText = "I've just left and am navigating through transit. I will reach in about 15 minutes!";
+      } else if (lower.includes('price') || lower.includes('cost') || lower.includes('charge') || lower.includes('money')) {
+        replyText = `The cost will be as per the scheduled price of ₹${activeChatBooking.price}. No hidden extra middleman charges!`;
+      } else if (lower.includes('number') || lower.includes('call') || lower.includes('phone')) {
+        replyText = `My number is +91 98765 43210. You can call me directly if you can't locate me!`;
+      } else if (lower.includes('whatsapp') || lower.includes('chat')) {
+        replyText = "I am also active here and on WhatsApp! Let me know if you need to share a photo of the repair area.";
+      }
+
+      const providerMsg = {
+        id: 'msg_' + Date.now() + '_sim',
+        senderId: activeChatBooking.providerId,
+        senderName: activeChatBooking.providerName,
+        textEn: replyText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const updatedMsgs = [...nextMsgs, providerMsg];
+      setChatMessages(updatedMsgs);
+      localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(updatedMsgs));
+      setIsTypingSimulated(false);
+
+      // Trigger standard local notification
+      addNotification(
+        `New chat message from ${activeChatBooking.providerName}: "${replyText}"`,
+        `${activeChatBooking.providerName} से नया संदेश: "${replyText}"`
+      );
+
+      // Also trigger a dispatch of the simulator's response to the Pusher backend API
+      try {
+        await fetch('/api/chat/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: activeChatBooking.id,
+            senderId: activeChatBooking.providerId,
+            senderName: activeChatBooking.providerName,
+            textEn: replyText,
+            textHi: replyText
+          })
+        });
+      } catch (err) {
+        console.error('Failed to dispatch simulated response over Pusher:', err);
+      }
+    }, 2500);
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedReviewBooking) return;
+    setReviewError('');
+    setIsSubmittingReview(true);
+
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          providerId: selectedReviewBooking.providerId,
+          customerName: user?.name || 'Abhishek Tyagi',
+          rating: reviewRating,
+          commentEn: reviewComment.trim() || 'Excellent home service! Very satisfied.',
+          commentHi: reviewComment.trim() || 'उत्कृष्ट घरेलू सेवा! बहुत संतुष्ट।'
+        })
+      });
+
+      if (res.ok) {
+        // Sync local store using fetchInitialData to update provider averages
+        await fetchInitialData();
+        
+        addNotification(
+          `Review submitted successfully for ${selectedReviewBooking.providerName}!`,
+          `${selectedReviewBooking.providerName} के लिए समीक्षा सफलतापूर्वक सबमिट की गई!`
+        );
+
+        setSelectedReviewBooking(null);
+        setReviewComment('');
+        setReviewRating(5);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setReviewError(errData.error || 'Failed to submit review.');
+      }
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      setReviewError('Failed to connect to the reviews server.');
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -356,6 +537,13 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
 
                       {b.status === 'accepted' && (
                         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => setActiveChatBooking(b)}
+                            className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-[10px] cursor-pointer transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Live Chat</span>
+                          </button>
                           {(() => {
                             const p = providers.find(prov => prov.id === b.providerId);
                             if (p && p.whatsapp) {
@@ -369,7 +557,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                                   rel="noopener noreferrer"
                                   className="py-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-[10px] cursor-pointer transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/10 text-center font-bold"
                                 >
-                                  <span>💬 Chat on WhatsApp</span>
+                                  <span>💬 WhatsApp</span>
                                 </a>
                               );
                             }
@@ -418,22 +606,47 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 ) : (
                   <div className="space-y-3">
                     {bookings.filter(b => b.status === 'completed' || b.status === 'cancelled').map(b => (
-                      <div key={b.id} className="bg-white p-4 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-4 hover:border-slate-300 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <img src={b.providerAvatar} alt={b.providerName} className="w-10 h-10 rounded-xl object-cover" />
-                          <div>
-                            <span className="block text-xs font-extrabold text-slate-800">{b.providerName}</span>
-                            <span className="block text-[10px] text-slate-400 font-semibold">{b.date} • {b.serviceCategory}</span>
+                      <div key={b.id} className="bg-white p-4 border border-slate-200/80 rounded-2xl flex flex-col gap-3 hover:border-slate-300 transition-colors">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <img src={b.providerAvatar} alt={b.providerName} className="w-10 h-10 rounded-xl object-cover" />
+                            <div>
+                              <span className="block text-xs font-extrabold text-slate-800">{b.providerName}</span>
+                              <span className="block text-[10px] text-slate-400 font-semibold">{b.date} • {b.serviceCategory}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-black text-slate-800">₹{b.price}</span>
+                            <span className={`block px-2.5 py-0.5 rounded-full text-[9px] font-black mt-1 ${
+                              b.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {b.status === 'completed' ? '✓ Done' : '✗ Cancelled'}
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span className="text-sm font-black text-slate-800">₹{b.price}</span>
-                          <span className={`block px-2.5 py-0.5 rounded-full text-[9px] font-black mt-1 ${
-                            b.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            {b.status === 'completed' ? '✓ Done' : '✗ Cancelled'}
-                          </span>
-                        </div>
+                        {b.status === 'completed' && (
+                          <div className="flex gap-2 justify-end pt-2 border-t border-slate-100">
+                            <button
+                              onClick={() => setSelectedInvoiceBooking(b)}
+                              className="py-1 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-extrabold rounded-lg text-[9px] cursor-pointer flex items-center gap-1 transition-colors"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>View Invoice</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedReviewBooking(b);
+                                setReviewRating(5);
+                                setReviewComment('');
+                                setReviewError('');
+                              }}
+                              className="py-1 px-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-extrabold rounded-lg text-[9px] cursor-pointer flex items-center gap-1 transition-colors"
+                            >
+                              <Star className="w-3 h-3 fill-current" />
+                              <span>Write Review</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -585,6 +798,13 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
 
                         {b.status === 'accepted' && (
                           <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => setActiveChatBooking(b)}
+                              className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-lg text-[10px] cursor-pointer transition-colors flex items-center gap-1 shadow-md shadow-blue-500/10"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Live Chat</span>
+                            </button>
                             {(() => {
                               const p = providers.find(prov => prov.id === b.providerId);
                               if (p && p.whatsapp) {
@@ -598,7 +818,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                                     rel="noopener noreferrer"
                                     className="py-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-[10px] cursor-pointer transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/10 text-center font-bold"
                                   >
-                                    <span>💬 Chat on WhatsApp</span>
+                                    <span>💬 WhatsApp</span>
                                   </a>
                                 );
                               }
@@ -622,22 +842,47 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 ) : (
                   <div className="space-y-3">
                     {bookings.filter(b => b.status === 'completed' || b.status === 'cancelled').map(b => (
-                      <div key={b.id} className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <img src={b.providerAvatar} alt={b.providerName} className="w-8 h-8 rounded-lg object-cover" />
-                          <div>
-                            <span className="block font-extrabold text-slate-800">{b.providerName}</span>
-                            <span className="block text-[9px] text-slate-400 font-semibold">{b.date} • {b.serviceCategory}</span>
+                      <div key={b.id} className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex flex-col gap-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <img src={b.providerAvatar} alt={b.providerName} className="w-8 h-8 rounded-lg object-cover" />
+                            <div>
+                              <span className="block font-extrabold text-slate-800">{b.providerName}</span>
+                              <span className="block text-[9px] text-slate-400 font-semibold">{b.date} • {b.serviceCategory}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-extrabold text-slate-800">₹{b.price}</span>
+                            <span className={`block px-2.5 py-0.5 rounded-full text-[8px] font-black tracking-wider uppercase mt-1 ${
+                              b.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              {b.status === 'completed' ? 'Done' : 'Cancelled'}
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <span className="font-extrabold text-slate-800">₹{b.price}</span>
-                          <span className={`block px-2.5 py-0.5 rounded-full text-[8px] font-black tracking-wider uppercase mt-1 ${
-                            b.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            {b.status === 'completed' ? 'Done' : 'Cancelled'}
-                          </span>
-                        </div>
+                        {b.status === 'completed' && (
+                          <div className="flex gap-2 justify-end pt-2 border-t border-slate-200/50">
+                            <button
+                              onClick={() => setSelectedInvoiceBooking(b)}
+                              className="py-1 px-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-extrabold rounded-lg text-[9px] cursor-pointer flex items-center gap-1 transition-colors"
+                            >
+                              <Printer className="w-2.5 h-2.5" />
+                              <span>View Receipt</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedReviewBooking(b);
+                                setReviewRating(5);
+                                setReviewComment('');
+                                setReviewError('');
+                              }}
+                              className="py-1 px-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-extrabold rounded-lg text-[9px] cursor-pointer flex items-center gap-1 transition-colors"
+                            >
+                              <Star className="w-2.5 h-2.5 fill-current" />
+                              <span>Write Review</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -858,6 +1103,363 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
           </div>
         )}
       </div>
+
+      {/* OPTION 1: LIVE BILLING & PRINTABLE PDF INVOICE MODAL */}
+      {selectedInvoiceBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm no-print">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #invoice-print-area, #invoice-print-area * {
+                visibility: visible !important;
+              }
+              #invoice-print-area {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: white !important;
+                color: black !important;
+                padding: 24px !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+            }
+          `}</style>
+
+          <div 
+            id="invoice-print-area"
+            className="bg-white rounded-3xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+          >
+            {/* Invoice Header */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-900 px-6 py-6 text-white flex justify-between items-start">
+              <div>
+                <div className="font-black text-lg tracking-tight">Local<span className="text-amber-300">Fix</span> Invoice</div>
+                <div className="text-[10px] text-blue-200/90 font-extrabold uppercase mt-1">Receipt No: INV-{selectedInvoiceBooking.id.split('-')[1] || selectedInvoiceBooking.id}</div>
+              </div>
+              <button 
+                onClick={() => setSelectedInvoiceBooking(null)}
+                className="p-1.5 hover:bg-white/10 rounded-xl transition-colors no-print cursor-pointer"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Invoice Body */}
+            <div className="p-6 space-y-6 bg-white">
+              {/* Addresses section */}
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="block font-black text-slate-400 uppercase text-[9px] tracking-wider mb-1">Provider</span>
+                  <span className="block font-extrabold text-slate-800">{selectedInvoiceBooking.providerName}</span>
+                  <span className="block text-slate-400 capitalize">{selectedInvoiceBooking.serviceCategory} Specialist</span>
+                  <span className="block text-slate-400">Aligarh, UP</span>
+                </div>
+                <div>
+                  <span className="block font-black text-slate-400 uppercase text-[9px] tracking-wider mb-1">Billed To</span>
+                  <span className="block font-extrabold text-slate-800">{selectedInvoiceBooking.customerName || user?.name}</span>
+                  <span className="block text-slate-400">{selectedInvoiceBooking.customerAddress}</span>
+                  <span className="block text-slate-400">Date: {selectedInvoiceBooking.date}</span>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="border-t border-b border-slate-100 py-4">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-400 font-extrabold uppercase text-[9px] tracking-wider text-left border-b border-slate-100 pb-2">
+                      <th className="pb-2">Description</th>
+                      <th className="text-right pb-2">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    <tr>
+                      <td className="py-2.5 font-bold text-slate-700 capitalize">
+                        {selectedInvoiceBooking.serviceCategory} Maintenance Service Charge
+                      </td>
+                      <td className="text-right font-extrabold text-slate-800 py-2.5">
+                        ₹{selectedInvoiceBooking.price}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 text-slate-500">Convenience & Booking Fee</td>
+                      <td className="text-right text-slate-600 py-2.5">₹30.00</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2.5 text-slate-500">Taxes (CGST 9% + SGST 9%)</td>
+                      <td className="text-right text-slate-600 py-2.5">
+                        ₹{((selectedInvoiceBooking.price * 0.18)).toFixed(2)}
+                      </td>
+                    </tr>
+                    {selectedInvoiceBooking.appliedPromo && (
+                      <tr>
+                        <td className="py-2.5 text-emerald-600 font-bold">
+                          Promo Discount ({selectedInvoiceBooking.appliedPromo})
+                        </td>
+                        <td className="text-right text-emerald-600 font-extrabold py-2.5">
+                          - ₹50.00
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Total Calculation */}
+              <div className="flex justify-between items-baseline pt-2">
+                <span className="text-sm font-black text-slate-900">Total Amount Paid</span>
+                <span className="text-2xl font-black text-blue-700">
+                  ₹{(
+                    selectedInvoiceBooking.price + 
+                    30 + 
+                    (selectedInvoiceBooking.price * 0.18) - 
+                    (selectedInvoiceBooking.appliedPromo ? 50 : 0)
+                  ).toFixed(2)}
+                </span>
+              </div>
+
+              {/* Payment Details */}
+              <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between text-xs">
+                <div>
+                  <span className="block text-slate-400 text-[10px]">Payment Method</span>
+                  <span className="font-extrabold text-slate-700 capitalize">
+                    {selectedInvoiceBooking.paymentStatus === 'paid' ? 'Secured Gateway (Simulated)' : 'Cash / Pending'}
+                  </span>
+                </div>
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full font-black text-[10px] tracking-wider uppercase">
+                  PAID ✓
+                </span>
+              </div>
+            </div>
+
+            {/* Print Footer Controls */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end no-print">
+              <button 
+                onClick={() => setSelectedInvoiceBooking(null)}
+                className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
+              >
+                Close Receipt
+              </button>
+              <button 
+                onClick={() => window.print()}
+                className="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print PDF Invoice</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OPTION 2: STAR RATING & REVIEW SUBMISSION DIALOG */}
+      {selectedReviewBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] border border-slate-200 w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-black text-slate-900 text-base">Write Service Review</h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Share your feedback for {selectedReviewBooking.providerName}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedReviewBooking(null)}
+                className="p-1 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-slate-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleReviewSubmit} className="p-6 space-y-4">
+              {reviewError && (
+                <div className="text-xs text-rose-600 bg-rose-50 border border-rose-100 p-3 rounded-xl font-bold">
+                  ⚠ {reviewError}
+                </div>
+              )}
+
+              {/* Star Selection with animations */}
+              <div className="space-y-2 text-center py-2 bg-slate-50 border border-slate-100 rounded-2xl">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Tap to Rate Service</label>
+                <div className="flex justify-center items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      onMouseEnter={() => setReviewRatingHover(star)}
+                      onMouseLeave={() => setReviewRatingHover(0)}
+                      className="p-1 focus:outline-none transition-transform hover:scale-115 active:scale-95 cursor-pointer text-3xl"
+                    >
+                      <Star 
+                        className={`w-8 h-8 transition-colors ${
+                          star <= (reviewRatingHover || reviewRating)
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-200'
+                        }`} 
+                      />
+                    </button>
+                  ))}
+                </div>
+                <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wide">
+                  {reviewRating === 5 ? '⭐⭐⭐⭐⭐ Excellent' :
+                   reviewRating === 4 ? '⭐⭐⭐⭐ Good' :
+                   reviewRating === 3 ? '⭐⭐⭐ Average' :
+                   reviewRating === 2 ? '⭐⭐ Poor' :
+                   '⭐ Terrible'}
+                </span>
+              </div>
+
+              {/* Review Textbox */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Review comment (English / Hindi)</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Tell us about the provider experience, punctuality, and repair quality..."
+                  className="w-full h-24 text-slate-800 bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-slate-400 font-bold resize-none"
+                  required
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReviewBooking(null)}
+                  disabled={isSubmittingReview}
+                  className="py-2.5 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview}
+                  className="py-2.5 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmittingReview ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <span>Submit Review</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* OPTION 4: REAL-TIME ACTIVE BOOKING CHAT DRAWER */}
+      {activeChatBooking && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-xs animate-in fade-in duration-200">
+          {/* Backdrop Click close */}
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setActiveChatBooking(null)}></div>
+          
+          {/* Chat Container */}
+          <div className="bg-white border-l border-slate-200 w-full max-w-md h-full flex flex-col relative z-10 shadow-2xl animate-in slide-in-from-right duration-300">
+            
+            {/* Header */}
+            <div className="px-5 py-4 bg-gradient-to-r from-blue-700 to-indigo-900 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <img 
+                  src={activeChatBooking.providerAvatar} 
+                  alt={activeChatBooking.providerName} 
+                  className="w-10 h-10 rounded-full object-cover border border-white/20"
+                />
+                <div>
+                  <h4 className="font-extrabold text-sm text-white">{activeChatBooking.providerName}</h4>
+                  <span className="inline-flex items-center gap-1 text-[9px] text-blue-200/90 font-black uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-ping"></span>
+                    <span>Active Dispatch In-App</span>
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setActiveChatBooking(null)}
+                className="p-1.5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Service brief info */}
+            <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] text-slate-500 shrink-0">
+              <span>Booking Ref: <strong>B-{activeChatBooking.id.split('-')[1] || activeChatBooking.id}</strong></span>
+              <span className="capitalize font-bold text-slate-600">{activeChatBooking.serviceCategory} task</span>
+            </div>
+
+            {/* Messages body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+              {chatMessages.map((msg) => {
+                const isMe = msg.senderId === 'customer';
+                return (
+                  <div 
+                    key={msg.id} 
+                    className={`flex flex-col max-w-[80%] ${
+                      isMe ? 'ml-auto items-end' : 'mr-auto items-start'
+                    }`}
+                  >
+                    <div className="text-[9px] text-slate-400 font-extrabold mb-1 px-1">
+                      {msg.senderName}
+                    </div>
+                    <div 
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-xs ${
+                        isMe 
+                          ? 'bg-blue-600 text-white rounded-tr-none' 
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.textEn}
+                    </div>
+                    <span className="text-[8px] text-slate-400 mt-1 px-1 font-medium">{msg.timestamp}</span>
+                  </div>
+                );
+              })}
+
+              {/* Typing simulation bubble */}
+              {isTypingSimulated && (
+                <div className="flex flex-col items-start max-w-[80%] mr-auto">
+                  <div className="text-[9px] text-slate-400 font-extrabold mb-1 px-1">
+                    {activeChatBooking.providerName}
+                  </div>
+                  <div className="bg-white text-slate-800 border border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-none shadow-xs text-xs font-bold flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input form */}
+            <form 
+              onSubmit={handleSendChatMessage}
+              className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
+            >
+              <input
+                type="text"
+                placeholder="Type message to provider..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                disabled={isSendingMessage || isTypingSimulated}
+                className="flex-1 text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-slate-400 font-bold disabled:opacity-50"
+              />
+              <button 
+                type="submit"
+                disabled={isSendingMessage || isTypingSimulated || !chatInput.trim()}
+                className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
