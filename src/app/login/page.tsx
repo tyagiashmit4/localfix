@@ -595,13 +595,6 @@ export default function LoginPage() {
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Password</label>
-                  <button 
-                    type="button" 
-                    onClick={() => setView('forgot')} 
-                    className="text-[10px] font-black text-blue-600 hover:text-indigo-700 cursor-pointer"
-                  >
-                    Forgot Password?
-                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -613,6 +606,15 @@ export default function LoginPage() {
                     required
                     className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none transition-all"
                   />
+                </div>
+                <div className="flex justify-end pt-0.5">
+                  <button 
+                    type="button" 
+                    onClick={() => setView('forgot')} 
+                    className="text-[10px] font-black text-blue-600 hover:text-indigo-700 cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
               </div>
 

@@ -43,6 +43,24 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
 
+  const handleDiscard = () => {
+    setStep(1);
+    setCategory('electrician');
+    setExperience('3');
+    setPricePerHr('249');
+    setCity('aligarh');
+    setAreas('Civil Lines, Ramghat Road');
+    setPhone('');
+    setWhatsapp('');
+    setBioEn('');
+    setBioHi('');
+    setCertifications('ITI Certified Electrician');
+    setAadhaarNumber('');
+    setAadhaarFile(null);
+    setError('');
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const handleNext = () => {
@@ -151,12 +169,12 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
   };
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
+    <div onClick={handleDiscard} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
       <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden relative animate-in fade-in zoom-in duration-200">
         
         {/* Header decoration */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 text-white flex justify-between items-center relative">
-          <div className="absolute top-0 right-0 p-8 bg-white/5 rounded-full blur-2xl"></div>
+          <div className="absolute top-0 right-0 p-8 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
           <div>
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
@@ -166,8 +184,8 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
           </div>
           <button 
             type="button"
-            onClick={onClose} 
-            className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+            onClick={handleDiscard} 
+            className="relative z-10 p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -407,47 +425,55 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
 
           {/* Action buttons */}
           <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-            {step > 1 ? (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-            ) : (
-              <div />
-            )}
+            <button
+              type="button"
+              onClick={handleDiscard}
+              className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+            >
+              Discard
+            </button>
 
-            {step < 4 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-500/10"
-              >
-                <span>Next Step</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={loading || !aadhaarNumber}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-emerald-500/15"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Registering...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Submit & Start Business</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back</span>
+                </button>
+              )}
+
+              {step < 4 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-blue-500/10"
+                >
+                  <span>Next Step</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading || !aadhaarNumber}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-emerald-500/15"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Registering...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Submit & Start Business</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </div>
