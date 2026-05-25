@@ -307,7 +307,7 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
           </div>
         </div>
 
-        <div className="space-y-4 lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+        <div className="space-y-4 lg:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           <div className="space-y-2.5">
             <div className="p-3 bg-blue-50 text-blue-600 rounded-xl inline-flex">
               <ShieldCheck className="w-5 h-5" />

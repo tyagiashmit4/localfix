@@ -353,6 +353,30 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                           </button>
                         </div>
                       )}
+
+                      {b.status === 'accepted' && (
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 justify-end">
+                          {(() => {
+                            const p = providers.find(prov => prov.id === b.providerId);
+                            if (p && p.whatsapp) {
+                              const cleanWa = p.whatsapp.startsWith('http') 
+                                ? p.whatsapp 
+                                : `https://wa.me/${p.whatsapp.replace(/\D/g, '')}`;
+                              return (
+                                <a
+                                  href={cleanWa}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="py-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-[10px] cursor-pointer transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/10 text-center font-bold"
+                                >
+                                  <span>💬 Chat on WhatsApp</span>
+                                </a>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -556,6 +580,30 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                             >
                               Cancel Booking
                             </button>
+                          </div>
+                        )}
+
+                        {b.status === 'accepted' && (
+                          <div className="flex gap-2 justify-end">
+                            {(() => {
+                              const p = providers.find(prov => prov.id === b.providerId);
+                              if (p && p.whatsapp) {
+                                const cleanWa = p.whatsapp.startsWith('http') 
+                                  ? p.whatsapp 
+                                  : `https://wa.me/${p.whatsapp.replace(/\D/g, '')}`;
+                                return (
+                                  <a
+                                    href={cleanWa}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="py-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-[10px] cursor-pointer transition-colors flex items-center gap-1.5 shadow-md shadow-emerald-500/10 text-center font-bold"
+                                  >
+                                    <span>💬 Chat on WhatsApp</span>
+                                  </a>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         )}
                       </div>
