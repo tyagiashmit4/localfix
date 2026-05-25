@@ -84,12 +84,14 @@ export async function PUT(request: Request) {
 
     const dataToUpdate: {
       name?: string;
+      email?: string;
       phone?: string;
       walletBalance?: number;
       notifications?: string;
     } = {};
 
     if (body.name !== undefined) dataToUpdate.name = body.name;
+    if (body.email !== undefined) dataToUpdate.email = body.email;
     if (body.phone !== undefined) dataToUpdate.phone = body.phone;
     if (body.walletBalance !== undefined) {
       dataToUpdate.walletBalance = parseFloat(body.walletBalance);
@@ -121,8 +123,13 @@ export async function PUT(request: Request) {
       walletBalance: updatedUser.walletBalance,
       notifications: parsedNotifications,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating user profile:', error);
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      const target = (error.meta?.target as string[]) || [];
+      const field = target.includes('email') ? 'Email' : target.includes('phone') ? 'Phone number' : 'Field';
+      return NextResponse.json({ error: `${field} is already in use by another account.` }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@
 
 import React, { use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -22,6 +23,7 @@ interface PageProps {
 export default function ProviderProfilePage({ params }: PageProps) {
   const router = useRouter();
   const { providerId } = use(params);
+  const { data: session } = useSession();
 
   const {
     lang,
@@ -54,6 +56,10 @@ export default function ProviderProfilePage({ params }: PageProps) {
   };
 
   const handleBookNow = () => {
+    if (!session) {
+      router.push(`/login?callbackUrl=/providers/${providerId}`);
+      return;
+    }
     initiateBooking(selectedProvider);
     router.push('/booking');
   };

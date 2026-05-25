@@ -645,14 +645,14 @@ export default function AdminView() {
         )}
         {/* Global Aadhaar biometric verification modal overlay */}
         {adminSelectedProvider && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 text-white rounded-[2rem] max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+          <div onClick={() => setAdminSelectedProvider(null)} className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div onClick={(e) => e.stopPropagation()} className="bg-slate-900 border border-slate-800 text-white rounded-[2rem] max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <span className="font-extrabold text-xs uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                   <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   Biometric Aadhaar Verification Desk
                 </span>
-                <button onClick={() => setAdminSelectedProvider(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+                <button type="button" onClick={() => setAdminSelectedProvider(null)} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>

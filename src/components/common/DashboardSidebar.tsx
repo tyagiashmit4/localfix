@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 
 interface SidebarLink {
@@ -31,6 +31,8 @@ export default function DashboardSidebar({
   bottomLinks
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'overview';
 
   const roleColors = {
     CUSTOMER: { accent: 'bg-blue-600', ring: 'ring-blue-500/20', label: 'Customer', tagBg: 'bg-blue-50 text-blue-700', iconBg: 'bg-blue-100 text-blue-700' },
@@ -82,7 +84,9 @@ export default function DashboardSidebar({
         {/* Navigation links */}
         <nav className="px-3 py-3 space-y-0.5">
           {links.map((link, idx) => {
-            const isActive = pathname === link.href;
+            const isTabMatch = link.href.includes(`tab=${activeTab}`) || 
+              (activeTab === 'overview' && !link.href.includes('tab='));
+            const isActive = isTabMatch;
             return (
               <Link
                 key={`${link.label}-${idx}`}
@@ -112,16 +116,23 @@ export default function DashboardSidebar({
         {/* Bottom links (Settings, Logout etc.) */}
         {bottomLinks && bottomLinks.length > 0 && (
           <div className="px-3 py-3 border-t border-slate-100 space-y-0.5">
-            {bottomLinks.map((link, idx) => (
-              <Link
-                key={`${link.label}-${idx}`}
-                href={link.href}
-                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
-              >
-                <span className="text-slate-400">{link.icon}</span>
-                <span>{link.label}</span>
-              </Link>
-            ))}
+            {bottomLinks.map((link, idx) => {
+              const isActive = link.href.includes(`tab=${activeTab}`);
+              return (
+                <Link
+                  key={`${link.label}-${idx}`}
+                  href={link.href}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    isActive
+                      ? `${colors.accent} text-white shadow-sm`
+                      : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                  }`}
+                >
+                  <span className={isActive ? 'text-white' : 'text-slate-400'}>{link.icon}</span>
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

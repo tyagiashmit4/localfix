@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowLeft, 
   Gift, 
@@ -14,6 +15,7 @@ import { Booking } from '../../app/data';
 
 export default function BookingPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   const {
     lang,
@@ -23,6 +25,25 @@ export default function BookingPage() {
     addNotification,
     t
   } = useStore();
+
+  // Redirect if unauthenticated
+  React.useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login?callbackUrl=/booking');
+    }
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated' || !session) {
+    return null;
+  }
 
   // Local state variables for forms & coupon wizard
   const [bookingDate, setBookingDate] = useState('2026-05-22');
@@ -66,8 +87,8 @@ export default function BookingPage() {
   };
 
   const handleCreateBooking = () => {
-    if (!bookingAddress.trim()) {
-      addNotification("Address coordinates are required", "घर का पता आवश्यक है");
+    if (!bookingAddress.trim() || bookingAddress.trim().length < 10) {
+      addNotification("Please enter a slightly longer address (minimum 10 characters).", "कृपया थोड़ा लंबा पता दर्ज करें (न्यूनतम 10 वर्ण)।");
       return;
     }
     const orderRef = 'LF-' + Date.now();

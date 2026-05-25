@@ -47,18 +47,33 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
 
   const handleNext = () => {
     if (step === 1) {
-      if (!pricePerHr || Number(pricePerHr) <= 0) {
-        setError('Please enter a valid hourly rate');
+      const rate = Number(pricePerHr);
+      if (!pricePerHr || isNaN(rate) || rate < 99 || rate > 1000) {
+        setError('Please enter a valid hourly rate between ₹99 and ₹1000.');
+        return;
+      }
+      const exp = Number(experience);
+      if (!experience || isNaN(exp) || exp < 0 || exp > 50) {
+        setError('Please enter a valid experience between 0 and 50 years.');
         return;
       }
     } else if (step === 2) {
-      if (!areas.trim()) {
-        setError('Please specify at least one service area');
+      if (!areas.trim() || areas.trim().length < 5) {
+        setError('Please specify valid service areas (minimum 5 characters).');
         return;
       }
     } else if (step === 3) {
-      if (!phone.trim()) {
-        setError('Please enter a valid contact phone number');
+      const cleanPhone = phone.trim();
+      if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+        setError('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
+        return;
+      }
+      if (whatsapp.trim() && !/^[6-9]\d{9}$/.test(whatsapp.trim())) {
+        setError('Please enter a valid 10-digit WhatsApp mobile number.');
+        return;
+      }
+      if (!bioEn.trim() || bioEn.trim().length < 15) {
+        setError('Please write a slightly longer English bio (minimum 15 characters).');
         return;
       }
     }
@@ -74,6 +89,18 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanAadhaar = aadhaarNumber.replace(/\s+/g, '');
+    if (!/^\d{12}$/.test(cleanAadhaar)) {
+      setError('Please enter a valid 12-digit Aadhaar number.');
+      return;
+    }
+
+    if (!aadhaarFile) {
+      setError('Please upload your Aadhaar Card Front Scan document.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -124,8 +151,8 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden relative animate-in fade-in zoom-in duration-200">
+    <div onClick={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden relative animate-in fade-in zoom-in duration-200">
         
         {/* Header decoration */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 text-white flex justify-between items-center relative">
@@ -138,6 +165,7 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
             <p className="text-blue-100 text-xs mt-0.5">Set up your business profile and earn 100% of your bookings!</p>
           </div>
           <button 
+            type="button"
             onClick={onClose} 
             className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
           >
@@ -270,6 +298,7 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. 9876543210"
                     required
+                    pattern="[6-9][0-9]{9}"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -280,6 +309,7 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     placeholder="Leave empty if same"
+                    pattern="[6-9][0-9]{9}"
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
@@ -341,6 +371,7 @@ export default function BecomeProviderModal({ isOpen, onClose }: BecomeProviderM
                   placeholder="e.g. 1234 5678 9012"
                   maxLength={14}
                   required
+                  pattern="[0-9]{4}\s?[0-9]{4}\s?[0-9]{4}"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>

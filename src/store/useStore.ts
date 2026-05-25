@@ -75,6 +75,8 @@ interface LocalFixState {
   setNotifications: (update: NotificationItem[] | ((prev: NotificationItem[]) => NotificationItem[])) => void;
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
+  user: { id: string; name: string; email: string; phone: string; role: string } | null;
+  updateUserProfile: (name: string, phone: string, email: string) => Promise<{ success: boolean; error?: string }>;
 
   // Search & Filter Workspace
   filterMinExperience: number;
@@ -231,6 +233,7 @@ export const useStore = create<LocalFixState>((set, get) => ({
   },
   showNotifications: false,
   setShowNotifications: (showNotifications) => set({ showNotifications }),
+  user: null,
 
   // Search & Filter Workspace
   filterMinExperience: 0,
@@ -402,7 +405,14 @@ export const useStore = create<LocalFixState>((set, get) => ({
         const profile = await profileRes.json();
         set({
           walletBalance: profile.walletBalance,
-          notifications: profile.notifications
+          notifications: profile.notifications,
+          user: {
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone,
+            role: profile.role
+          }
         });
       }
     } catch (error) {
@@ -441,6 +451,37 @@ export const useStore = create<LocalFixState>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to update booking:', error);
+    }
+  },
+
+  updateUserProfile: async (name, phone, email) => {
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, phone, email }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        set((state) => ({
+          user: state.user ? {
+            ...state.user,
+            name: updated.name,
+            phone: updated.phone,
+            email: updated.email
+          } : null
+        }));
+        get().addNotification(
+          `Successfully updated your profile information.`,
+          `आपकी प्रोफ़ाइल जानकारी सफलतापूर्वक अपडेट कर दी गई है।`
+        );
+        return { success: true };
+      }
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'Failed to update user profile.' };
+    } catch (error) {
+      console.error('Failed to update user profile:', error);
+      return { success: false, error: 'Internal server error.' };
     }
   }
 }));

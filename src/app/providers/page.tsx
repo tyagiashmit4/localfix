@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { 
   ArrowLeft, 
   Map, 
@@ -18,6 +19,7 @@ import HeaderBanner from '../../components/common/HeaderBanner';
 
 export default function ProvidersPage() {
   const router = useRouter();
+  const { data: session } = useSession();
 
   const {
     lang,
@@ -361,6 +363,10 @@ export default function ProvidersPage() {
 
                     <button
                       onClick={() => {
+                        if (!session) {
+                          router.push('/login?callbackUrl=/providers');
+                          return;
+                        }
                         initiateBooking(p);
                         router.push('/booking');
                       }}

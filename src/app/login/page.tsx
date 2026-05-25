@@ -140,6 +140,13 @@ export default function LoginPage() {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanPhone = phone.trim();
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setError('Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -169,6 +176,13 @@ export default function LoginPage() {
   const handleVerifyOtpAndLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanOtp = otp.trim();
+    if (!cleanOtp || !/^\d{6}$/.test(cleanOtp)) {
+      setError('Please enter a valid 6-digit OTP code.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -211,6 +225,25 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!signupName.trim() || signupName.trim().length < 3) {
+      setError('Name must be at least 3 characters long.');
+      return;
+    }
+    if (!signupEmail.trim() || !/\S+@\S+\.\S+/.test(signupEmail)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    const cleanPhone = signupPhone.trim();
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    if (!signupPassword || signupPassword.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -257,6 +290,13 @@ export default function LoginPage() {
   const handleForgotRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanPhone = forgotPhone.trim();
+    if (!cleanPhone || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -286,6 +326,13 @@ export default function LoginPage() {
   const handleVerifyForgotOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const cleanOtp = forgotOtp.trim();
+    if (!cleanOtp || !/^\d{6}$/.test(cleanOtp)) {
+      setError('Please enter a valid 6-digit verification code.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -315,6 +362,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!forgotNewPassword || forgotNewPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+
     setLoading(true);
 
     try {

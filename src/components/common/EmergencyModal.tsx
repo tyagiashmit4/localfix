@@ -102,13 +102,14 @@ export default function EmergencyModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-300">
-      <div className="relative w-full max-w-lg p-8 rounded-3xl bg-white border-2 border-red-500 shadow-2xl text-center overflow-hidden danger-glow">
+    <div onClick={handleClose} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md transition-all duration-300">
+      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-lg p-8 rounded-3xl bg-white border-2 border-red-500 shadow-2xl text-center overflow-hidden danger-glow">
         
         {/* Pulsing red SOS rings in background */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-red-100 rounded-full animate-ping-slow -z-10 opacity-30"></div>
         
         <button 
+          type="button"
           onClick={handleClose} 
           className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
         >
