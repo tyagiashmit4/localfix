@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { SERVICE_CATEGORIES } from '../../../app/data';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    return NextResponse.json(SERVICE_CATEGORIES);
+    const categories = await prisma.serviceCategory.findMany();
+    return NextResponse.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
     return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 });

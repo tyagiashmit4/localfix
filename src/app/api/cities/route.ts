@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { CITIES } from '../../../app/data';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    return NextResponse.json(CITIES);
+    const cities = await prisma.city.findMany();
+    return NextResponse.json(cities);
   } catch (error) {
     console.error('Error fetching cities:', error);
     return NextResponse.json({ error: 'Failed to fetch cities' }, { status: 500 });

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { MOCK_PROVIDERS, INITIAL_BOOKINGS, MOCK_REVIEWS } from '../src/app/data';
+import { MOCK_PROVIDERS, INITIAL_BOOKINGS, MOCK_REVIEWS, CITIES, SERVICE_CATEGORIES } from '../src/app/data';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -122,6 +122,38 @@ async function main() {
         role: user.role,
         password: hashedPassword,
         phone: user.phone,
+      },
+    });
+  }
+
+  // 6. Seed Cities
+  for (const city of CITIES) {
+    await prisma.city.upsert({
+      where: { id: city.id },
+      update: {},
+      create: {
+        id: city.id,
+        nameEn: city.nameEn,
+        nameHi: city.nameHi,
+      },
+    });
+  }
+
+  // 7. Seed Categories
+  for (const category of SERVICE_CATEGORIES) {
+    await prisma.serviceCategory.upsert({
+      where: { id: category.id },
+      update: {},
+      create: {
+        id: category.id,
+        nameEn: category.nameEn,
+        nameHi: category.nameHi,
+        icon: category.icon,
+        startingPrice: category.startingPrice,
+        providerCount: category.providerCount,
+        rating: category.rating,
+        descriptionEn: category.descriptionEn,
+        descriptionHi: category.descriptionHi,
       },
     });
   }

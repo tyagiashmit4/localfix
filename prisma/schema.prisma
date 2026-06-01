@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 model Provider {
-  id               String   @id
+  id               String   @id @map("_id")
   name             String
   avatar           String
   coverImage       String
@@ -34,7 +34,7 @@ model Provider {
 }
 
 model Booking {
-  id              String   @id
+  id              String   @id @map("_id")
   customerName    String
   customerPhone   String
   customerAddress String
@@ -54,7 +54,7 @@ model Booking {
 }
 
 model Review {
-  id           String   @id
+  id           String   @id @map("_id")
   providerId   String
   provider     Provider @relation(fields: [providerId], references: [id])
   customerName String
@@ -65,7 +65,7 @@ model Review {
 }
 
 model SupportTicket {
-  id        String   @id
+  id        String   @id @map("_id")
   subjectEn String
   subjectHi String
   status    String   // 'open' | 'resolved'
@@ -76,8 +76,8 @@ model SupportTicket {
 // NextAuth Models
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
+  id                 String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId             String  @db.ObjectId
   type               String
   provider           String
   providerAccountId  String
@@ -95,15 +95,15 @@ model Account {
 }
 
 model Session {
-  id           String   @id @default(cuid())
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.ObjectId
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
   email         String?   @unique
   phone         String?   @unique
@@ -118,9 +118,28 @@ model User {
 }
 
 model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   identifier String
   token      String   @unique
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model City {
+  id     String @id @map("_id")
+  nameEn String
+  nameHi String
+}
+
+model ServiceCategory {
+  id            String @id @map("_id")
+  nameEn        String
+  nameHi        String
+  icon          String
+  startingPrice Int
+  providerCount Int
+  rating        Float
+  descriptionEn String
+  descriptionHi String
 }
