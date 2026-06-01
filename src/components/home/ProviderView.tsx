@@ -21,8 +21,6 @@ import {
   Briefcase,
   Sparkles,
   ArrowRight,
-  TrendingDown,
-  Building,
   UserCheck,
   X,
   MessageSquare,
@@ -31,10 +29,10 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import DashboardLayout from '../common/DashboardLayout';
+import { Booking } from '../../app/data';
 
 export default function ProviderView() {
   const { data: session } = useSession();
-  const router = useRouter();
 
   const {
     lang,
@@ -44,19 +42,18 @@ export default function ProviderView() {
     setProviders,
     addNotification,
     updateUserProfile,
-    user,
-    t
+    user
   } = useStore();
 
   // Premium upgrades state
-  const [activeChatBooking, setActiveChatBooking] = useState<any | null>(null);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ id: string; senderId: string; senderName: string; textEn: string; timestamp: string }[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
   const [isTypingSimulated, setIsTypingSimulated] = useState<boolean>(false);
 
   // Performance Tab Interactive States
-  const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<any | null>(null);
+  const [selectedHeatmapCell, setSelectedHeatmapCell] = useState<{ d: string; t: string; pct: number } | null>(null);
   const [selectedEarningWeek, setSelectedEarningWeek] = useState<number>(4);
 
 
@@ -217,7 +214,7 @@ export default function ProviderView() {
         parsedAreas = typeof currentProvider.areas === 'string' 
           ? JSON.parse(currentProvider.areas) 
           : currentProvider.areas || [];
-      } catch (e) {
+      } catch {
         parsedAreas = currentProvider.areas || [];
       }
       setAreasText(Array.isArray(parsedAreas) ? parsedAreas.join(', ') : String(parsedAreas));

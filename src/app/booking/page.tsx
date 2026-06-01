@@ -26,6 +26,17 @@ export default function BookingPage() {
     t
   } = useStore();
 
+  // Local state variables for forms & coupon wizard
+  const [bookingDate, setBookingDate] = useState('2026-05-22');
+  const [bookingTime, setBookingTime] = useState('10:00 AM - 12:00 PM');
+  const [bookingAddress, setBookingAddress] = useState('Dodhpura, Civil Lines');
+  const [bookingNotes, setBookingNotes] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [bookingStep, setBookingStep] = useState<number>(1); // 1 = details, 2 = payment, 3 = success
+  const [currentBookingId, setCurrentBookingId] = useState('');
+
   // Redirect if unauthenticated
   React.useEffect(() => {
     if (status === 'unauthenticated') {
@@ -44,17 +55,6 @@ export default function BookingPage() {
   if (status === 'unauthenticated' || !session) {
     return null;
   }
-
-  // Local state variables for forms & coupon wizard
-  const [bookingDate, setBookingDate] = useState('2026-05-22');
-  const [bookingTime, setBookingTime] = useState('10:00 AM - 12:00 PM');
-  const [bookingAddress, setBookingAddress] = useState('Dodhpura, Civil Lines');
-  const [bookingNotes, setBookingNotes] = useState('');
-  const [promoCode, setPromoCode] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
-  const [promoDiscount, setPromoDiscount] = useState(0);
-  const [bookingStep, setBookingStep] = useState<number>(1); // 1 = details, 2 = payment, 3 = success
-  const [currentBookingId, setCurrentBookingId] = useState('');
 
   if (!selectedProvider) {
     return (
@@ -121,7 +121,7 @@ export default function BookingPage() {
           name: 'LocalFix India',
           description: `Booking for ${selectedProvider.name}`,
           order_id: order.id,
-          handler: async function (response: any) {
+          handler: async function () {
             // Payment success!
             const newBooking: Booking = {
               id: currentBookingId,
@@ -154,7 +154,8 @@ export default function BookingPage() {
           },
           theme: { color: '#2563eb' }
         };
-        const rzp = new (window as any).Razorpay(options);
+        // @ts-expect-error Razorpay is added dynamically via script
+        const rzp = new window.Razorpay(options);
         rzp.on('payment.failed', function () {
           addNotification('Payment failed. Please try again.', 'भुगतान विफल रहा। कृपया पुनः प्रयास करें।');
         });

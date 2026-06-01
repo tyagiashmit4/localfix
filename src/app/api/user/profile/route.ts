@@ -123,10 +123,10 @@ export async function PUT(request: Request) {
       walletBalance: updatedUser.walletBalance,
       notifications: parsedNotifications,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating user profile:', error);
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-      const target = (error.meta?.target as string[]) || [];
+      const target = ((error as { meta?: { target?: string[] } }).meta?.target) || [];
       const field = target.includes('email') ? 'Email' : target.includes('phone') ? 'Phone number' : 'Field';
       return NextResponse.json({ error: `${field} is already in use by another account.` }, { status: 400 });
     }

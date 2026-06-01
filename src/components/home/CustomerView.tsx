@@ -11,13 +11,8 @@ import {
   CalendarCheck,
   Clock,
   Star,
-  Zap,
-  Droplet,
-  Wind,
   Sparkles,
-  BookOpen,
   Settings,
-  ArrowUpRight,
   TrendingUp,
   CheckCircle2,
   ChevronRight,
@@ -27,7 +22,7 @@ import {
   Printer
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
-import { SupportTicket } from '../../app/data';
+import { SupportTicket, Booking } from '../../app/data';
 import DashboardLayout from '../common/DashboardLayout';
 import DashboardSidebar from '../common/DashboardSidebar';
 
@@ -53,7 +48,6 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
     supportTickets,
     setSupportTickets,
     addNotification,
-    t,
     user,
     updateUserProfile,
     fetchInitialData
@@ -71,9 +65,9 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   // Premium upgrades modal and chat states
-  const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<any | null>(null);
-  const [selectedReviewBooking, setSelectedReviewBooking] = useState<any | null>(null);
-  const [activeChatBooking, setActiveChatBooking] = useState<any | null>(null);
+  const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
+  const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
+  const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
   
   // Review submission states
   const [reviewRating, setReviewRating] = useState<number>(5);
@@ -83,7 +77,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
   const [reviewError, setReviewError] = useState<string>('');
 
   // Chat states
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ id: string; senderId: string; senderName: string; textEn: string; timestamp: string }[]>([]);
   const [chatInput, setChatInput] = useState<string>('');
   const [isSendingMessage, setIsSendingMessage] = useState<boolean>(false);
   const [isTypingSimulated, setIsTypingSimulated] = useState<boolean>(false);
@@ -159,7 +153,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
     }
 
     setIsSavingProfile(true);
-    const result = await updateUserProfile(editName.trim(), cleanPhone, cleanEmail);
+    await updateUserProfile(editName.trim(), cleanPhone, cleanEmail);
     setIsSavingProfile(false);
 
   };

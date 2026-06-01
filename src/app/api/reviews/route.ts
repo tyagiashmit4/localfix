@@ -64,8 +64,8 @@ export async function POST(request: Request) {
         reviewsCount,
       },
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error creating review:', error);
-    return NextResponse.json({ error: error.message || 'Failed to submit review' }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || 'Failed to submit review' }, { status: 500 });
   }
 }

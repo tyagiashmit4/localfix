@@ -26,7 +26,6 @@ export default function Navbar() {
     setNotifications,
     showNotifications,
     setShowNotifications,
-    setEmergencyActive,
     t
   } = useStore();
 
