@@ -106,7 +106,7 @@ model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String?
   email         String?   @unique
-  phone         String?   @unique
+  phone         String?
   emailVerified DateTime?
   image         String?
   password      String?
@@ -144,11 +144,3 @@ model ServiceCategory {
   descriptionHi String
 }
 
-model OtpVerification {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  phone     String?
-  email     String?
-  otp       String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}

@@ -16,35 +16,9 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        phone: { label: "Phone", type: "text" },
-        otp: { label: "OTP", type: "text" },
-        isOtpLogin: { label: "IsOtpLogin", type: "text" }
+
       },
       async authorize(credentials) {
-        if (credentials?.isOtpLogin === "true") {
-          if (!credentials?.phone) {
-            throw new Error("Phone number is required");
-          }
-
-          const user = await prisma.user.findUnique({
-            where: {
-              phone: credentials.phone
-            }
-          });
-
-          if (!user) {
-            throw new Error("No account found with this phone number.");
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            phone: user.phone,
-          };
-        }
-
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
         }
@@ -57,6 +31,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.password) {
           throw new Error("User not found");
+        }
+
+        if (!user.emailVerified) {
+          throw new Error("Please verify your email address before logging in. Check your inbox.");
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
