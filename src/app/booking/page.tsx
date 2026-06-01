@@ -101,10 +101,11 @@ export default function BookingPage() {
     
     try {
       // 1. Get Order ID from backend
-      const res = await fetch('/api/payments/razorpay', {
+      // amount needs to be in paise for the backend
+      const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: finalBill, currency: 'INR' })
+        body: JSON.stringify({ amount: finalBill * 100, currency: 'INR' })
       });
       const order = await res.json();
       if (!res.ok) throw new Error(order.error || 'Failed to create order');
@@ -120,33 +121,55 @@ export default function BookingPage() {
           currency: order.currency,
           name: 'LocalFix India',
           description: `Booking for ${selectedProvider.name}`,
-          order_id: order.id,
-          handler: async function () {
-            // Payment success!
-            const newBooking: Booking = {
-              id: currentBookingId,
-              customerName: 'Abhishek Tyagi',
-              customerPhone: '+91 99887 76655',
-              customerAddress: bookingAddress,
-              city: selectedCity,
-              serviceCategory: selectedProvider.category,
-              providerId: selectedProvider.id,
-              providerName: selectedProvider.name,
-              providerAvatar: selectedProvider.avatar,
-              date: bookingDate,
-              timeSlot: bookingTime,
-              status: 'pending',
-              price: finalBill,
-              notes: bookingNotes,
-              paymentStatus: 'paid'
-            };
+          order_id: order.order_id,
+          handler: async function (response: any) {
+            try {
+              // Verify signature
+              const verifyRes = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_signature: response.razorpay_signature
+                })
+              });
+              
+              const verifyData = await verifyRes.json();
+              
+              if (!verifyRes.ok || !verifyData.success) {
+                throw new Error(verifyData.error || 'Payment verification failed');
+              }
+              
+              // Payment success!
+              const newBooking: Booking = {
+                id: currentBookingId,
+                customerName: 'Abhishek Tyagi',
+                customerPhone: '+91 99887 76655',
+                customerAddress: bookingAddress,
+                city: selectedCity,
+                serviceCategory: selectedProvider.category,
+                providerId: selectedProvider.id,
+                providerName: selectedProvider.name,
+                providerAvatar: selectedProvider.avatar,
+                date: bookingDate,
+                timeSlot: bookingTime,
+                status: 'pending',
+                price: finalBill,
+                notes: bookingNotes,
+                paymentStatus: 'paid'
+              };
 
-            await createBooking(newBooking);
-            addNotification(
-              `🎉 Service booked with ${selectedProvider.name}! ID: ${currentBookingId}`,
-              `🎉 ${selectedProvider.name} के साथ सेवा बुक की गई! आईडी: ${currentBookingId}`
-            );
-            setBookingStep(3);
+              await createBooking(newBooking);
+              addNotification(
+                `🎉 Service booked with ${selectedProvider.name}! ID: ${currentBookingId}`,
+                `🎉 ${selectedProvider.name} के साथ सेवा बुक की गई! आईडी: ${currentBookingId}`
+              );
+              setBookingStep(3);
+            } catch (error: any) {
+              console.error('Payment verification error:', error);
+              addNotification(error.message || 'Payment verification failed.', 'भुगतान सत्यापन विफल रहा।');
+            }
           },
           prefill: {
             name: 'Abhishek Tyagi',

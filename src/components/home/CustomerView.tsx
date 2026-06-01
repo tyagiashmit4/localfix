@@ -68,7 +68,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
   const [selectedInvoiceBooking, setSelectedInvoiceBooking] = useState<Booking | null>(null);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<Booking | null>(null);
   const [activeChatBooking, setActiveChatBooking] = useState<Booking | null>(null);
-  
+
   // Review submission states
   const [reviewRating, setReviewRating] = useState<number>(5);
   const [reviewRatingHover, setReviewRatingHover] = useState<number>(0);
@@ -198,60 +198,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
       setIsSendingMessage(false);
     }
 
-    // 3. Trigger premium smart simulated response from provider after 2.5 seconds
-    setIsTypingSimulated(true);
-    setTimeout(async () => {
-      let replyText = "Sure! I'm on my way and will reach your address shortly.";
-      
-      const lower = currentText.toLowerCase();
-      if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
-        replyText = `Hello ${user?.name || 'Abhishek'}! I have loaded all the required tools and parts for the service.`;
-      } else if (lower.includes('where') || lower.includes('reach') || lower.includes('time') || lower.includes('status')) {
-        replyText = "I've just left and am navigating through transit. I will reach in about 15 minutes!";
-      } else if (lower.includes('price') || lower.includes('cost') || lower.includes('charge') || lower.includes('money')) {
-        replyText = `The cost will be as per the scheduled price of ₹${activeChatBooking.price}. No hidden extra middleman charges!`;
-      } else if (lower.includes('number') || lower.includes('call') || lower.includes('phone')) {
-        replyText = `My number is +91 98765 43210. You can call me directly if you can't locate me!`;
-      } else if (lower.includes('whatsapp') || lower.includes('chat')) {
-        replyText = "I am also active here and on WhatsApp! Let me know if you need to share a photo of the repair area.";
-      }
-
-      const providerMsg = {
-        id: 'msg_' + Date.now() + '_sim',
-        senderId: activeChatBooking.providerId,
-        senderName: activeChatBooking.providerName,
-        textEn: replyText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      const updatedMsgs = [...nextMsgs, providerMsg];
-      setChatMessages(updatedMsgs);
-      localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(updatedMsgs));
-      setIsTypingSimulated(false);
-
-      // Trigger standard local notification
-      addNotification(
-        `New chat message from ${activeChatBooking.providerName}: "${replyText}"`,
-        `${activeChatBooking.providerName} से नया संदेश: "${replyText}"`
-      );
-
-      // Also trigger a dispatch of the simulator's response to the Pusher backend API
-      try {
-        await fetch('/api/chat/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: activeChatBooking.id,
-            senderId: activeChatBooking.providerId,
-            senderName: activeChatBooking.providerName,
-            textEn: replyText,
-            textHi: replyText
-          })
-        });
-      } catch (err) {
-        console.error('Failed to dispatch simulated response over Pusher:', err);
-      }
-    }, 2500);
+    // The chat message is now sent. We wait for a real response via Pusher.
   };
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
@@ -276,7 +223,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
       if (res.ok) {
         // Sync local store using fetchInitialData to update provider averages
         await fetchInitialData();
-        
+
         addNotification(
           `Review submitted successfully for ${selectedReviewBooking.providerName}!`,
           `${selectedReviewBooking.providerName} के लिए समीक्षा सफलतापूर्वक सबमिट की गई!`
@@ -390,7 +337,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
       }
     >
       <div className="space-y-6">
-        
+
         {/* TAB 1: OVERVIEW HUB */}
         {activeTab === 'overview' && (
           <>
@@ -408,7 +355,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                   </h1>
                   <p className="text-blue-100 text-sm mt-1">Here is a quick overview of your home maintenance activities.</p>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => router.push('/categories')}
@@ -416,7 +363,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                   >
                     Book a Service
                   </button>
-                  
+
                   <button
                     onClick={onOpenBecomeProvider}
                     className="py-3 px-5 bg-white/10 hover:bg-white/15 backdrop-blur-sm text-white font-extrabold rounded-2xl text-xs border border-white/10 transition-all cursor-pointer"
@@ -488,9 +435,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                         </div>
                         <div className="text-right shrink-0">
                           <span className="text-base font-black text-slate-900 block">₹{b.price}</span>
-                          <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black capitalize ${
-                            b.status === 'pending' ? 'bg-amber-50 border border-amber-200 text-amber-700' : 'bg-blue-50 border border-blue-200 text-blue-700'
-                          }`}>
+                          <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[9px] font-black capitalize ${b.status === 'pending' ? 'bg-amber-50 border border-amber-200 text-amber-700' : 'bg-blue-50 border border-blue-200 text-blue-700'
+                            }`}>
                             {b.status === 'pending' ? '⏳ Waiting' : '🚀 On the way'}
                           </span>
                         </div>
@@ -541,8 +487,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                           {(() => {
                             const p = providers.find(prov => prov.id === b.providerId);
                             if (p && p.whatsapp) {
-                              const cleanWa = p.whatsapp.startsWith('http') 
-                                ? p.whatsapp 
+                              const cleanWa = p.whatsapp.startsWith('http')
+                                ? p.whatsapp
                                 : `https://wa.me/${p.whatsapp.replace(/\D/g, '')}`;
                               return (
                                 <a
@@ -611,9 +557,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                           </div>
                           <div className="text-right">
                             <span className="text-sm font-black text-slate-800">₹{b.price}</span>
-                            <span className={`block px-2.5 py-0.5 rounded-full text-[9px] font-black mt-1 ${
-                              b.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
-                            }`}>
+                            <span className={`block px-2.5 py-0.5 rounded-full text-[9px] font-black mt-1 ${b.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                              }`}>
                               {b.status === 'completed' ? '✓ Done' : '✗ Cancelled'}
                             </span>
                           </div>
@@ -802,8 +747,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                             {(() => {
                               const p = providers.find(prov => prov.id === b.providerId);
                               if (p && p.whatsapp) {
-                                const cleanWa = p.whatsapp.startsWith('http') 
-                                  ? p.whatsapp 
+                                const cleanWa = p.whatsapp.startsWith('http')
+                                  ? p.whatsapp
                                   : `https://wa.me/${p.whatsapp.replace(/\D/g, '')}`;
                                 return (
                                   <a
@@ -847,9 +792,8 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                           </div>
                           <div className="text-right">
                             <span className="font-extrabold text-slate-800">₹{b.price}</span>
-                            <span className={`block px-2.5 py-0.5 rounded-full text-[8px] font-black tracking-wider uppercase mt-1 ${
-                              b.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-400'
-                            }`}>
+                            <span className={`block px-2.5 py-0.5 rounded-full text-[8px] font-black tracking-wider uppercase mt-1 ${b.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-400'
+                              }`}>
                               {b.status === 'completed' ? 'Done' : 'Cancelled'}
                             </span>
                           </div>
@@ -1044,7 +988,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
               {/* Wallet Manager Card */}
               <div className="bg-slate-50 border border-slate-200/80 p-5 rounded-2xl space-y-4">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Wallet Balance manager</span>
-                
+
                 <div className="flex items-baseline gap-1 bg-slate-900 text-white p-4 rounded-xl shadow-inner">
                   <span className="text-2xl font-black">₹{walletBalance}</span>
                   <span className="text-[10px] text-slate-400 font-medium">available cash</span>
@@ -1053,13 +997,13 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 <div className="space-y-3">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Add simulated credits</span>
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={() => { setWalletBalance(walletBalance + 500); addNotification("Added ₹500 credits to your wallet balance.", "आपके वॉलेट बैलेंस में ₹500 क्रेडिट जोड़े गए।"); }}
                       className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-[10px] transition-colors cursor-pointer shadow-sm text-center"
                     >
                       + ₹500
                     </button>
-                    <button 
+                    <button
                       onClick={() => { setWalletBalance(walletBalance + 1000); addNotification("Added ₹1000 credits to your wallet balance.", "आपके वॉलेट बैलेंस में ₹1000 क्रेडिट जोड़े गए।"); }}
                       className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-[10px] transition-colors cursor-pointer shadow-sm text-center"
                     >
@@ -1123,7 +1067,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
             }
           `}</style>
 
-          <div 
+          <div
             id="invoice-print-area"
             className="bg-white rounded-3xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           >
@@ -1133,7 +1077,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 <div className="font-black text-lg tracking-tight">Local<span className="text-amber-300">Fix</span> Invoice</div>
                 <div className="text-[10px] text-blue-200/90 font-extrabold uppercase mt-1">Receipt No: INV-{selectedInvoiceBooking.id.split('-')[1] || selectedInvoiceBooking.id}</div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedInvoiceBooking(null)}
                 className="p-1.5 hover:bg-white/10 rounded-xl transition-colors no-print cursor-pointer"
               >
@@ -1206,9 +1150,9 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 <span className="text-sm font-black text-slate-900">Total Amount Paid</span>
                 <span className="text-2xl font-black text-blue-700">
                   ₹{(
-                    selectedInvoiceBooking.price + 
-                    30 + 
-                    (selectedInvoiceBooking.price * 0.18) - 
+                    selectedInvoiceBooking.price +
+                    30 +
+                    (selectedInvoiceBooking.price * 0.18) -
                     (selectedInvoiceBooking.appliedPromo ? 50 : 0)
                   ).toFixed(2)}
                 </span>
@@ -1230,13 +1174,13 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
 
             {/* Print Footer Controls */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-2 justify-end no-print">
-              <button 
+              <button
                 onClick={() => setSelectedInvoiceBooking(null)}
                 className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
               >
                 Close Receipt
               </button>
-              <button 
+              <button
                 onClick={() => window.print()}
                 className="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-xl transition-all shadow-md shadow-blue-500/10 cursor-pointer flex items-center gap-1.5"
               >
@@ -1258,7 +1202,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 <h3 className="font-black text-slate-900 text-base">Write Service Review</h3>
                 <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Share your feedback for {selectedReviewBooking.providerName}</p>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedReviewBooking(null)}
                 className="p-1 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer text-slate-400"
               >
@@ -1286,22 +1230,21 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                       onMouseLeave={() => setReviewRatingHover(0)}
                       className="p-1 focus:outline-none transition-transform hover:scale-115 active:scale-95 cursor-pointer text-3xl"
                     >
-                      <Star 
-                        className={`w-8 h-8 transition-colors ${
-                          star <= (reviewRatingHover || reviewRating)
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-200'
-                        }`} 
+                      <Star
+                        className={`w-8 h-8 transition-colors ${star <= (reviewRatingHover || reviewRating)
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-slate-200'
+                          }`}
                       />
                     </button>
                   ))}
                 </div>
                 <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wide">
                   {reviewRating === 5 ? '⭐⭐⭐⭐⭐ Excellent' :
-                   reviewRating === 4 ? '⭐⭐⭐⭐ Good' :
-                   reviewRating === 3 ? '⭐⭐⭐ Average' :
-                   reviewRating === 2 ? '⭐⭐ Poor' :
-                   '⭐ Terrible'}
+                    reviewRating === 4 ? '⭐⭐⭐⭐ Good' :
+                      reviewRating === 3 ? '⭐⭐⭐ Average' :
+                        reviewRating === 2 ? '⭐⭐ Poor' :
+                          '⭐ Terrible'}
                 </span>
               </div>
 
@@ -1352,16 +1295,16 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
         <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-xs animate-in fade-in duration-200">
           {/* Backdrop Click close */}
           <div className="absolute inset-0 cursor-pointer" onClick={() => setActiveChatBooking(null)}></div>
-          
+
           {/* Chat Container */}
           <div className="bg-white border-l border-slate-200 w-full max-w-md h-full flex flex-col relative z-10 shadow-2xl animate-in slide-in-from-right duration-300">
-            
+
             {/* Header */}
             <div className="px-5 py-4 bg-gradient-to-r from-blue-700 to-indigo-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <img 
-                  src={activeChatBooking.providerAvatar} 
-                  alt={activeChatBooking.providerName} 
+                <img
+                  src={activeChatBooking.providerAvatar}
+                  alt={activeChatBooking.providerName}
                   className="w-10 h-10 rounded-full object-cover border border-white/20"
                 />
                 <div>
@@ -1372,7 +1315,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                   </span>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setActiveChatBooking(null)}
                 className="p-1.5 hover:bg-white/10 rounded-xl transition-colors cursor-pointer text-white"
               >
@@ -1391,21 +1334,19 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
               {chatMessages.map((msg) => {
                 const isMe = msg.senderId === 'customer';
                 return (
-                  <div 
-                    key={msg.id} 
-                    className={`flex flex-col max-w-[80%] ${
-                      isMe ? 'ml-auto items-end' : 'mr-auto items-start'
-                    }`}
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col max-w-[80%] ${isMe ? 'ml-auto items-end' : 'mr-auto items-start'
+                      }`}
                   >
                     <div className="text-[9px] text-slate-400 font-extrabold mb-1 px-1">
                       {msg.senderName}
                     </div>
-                    <div 
-                      className={`px-4 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-xs ${
-                        isMe 
-                          ? 'bg-blue-600 text-white rounded-tr-none' 
-                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
-                      }`}
+                    <div
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-semibold leading-relaxed shadow-xs ${isMe
+                        ? 'bg-blue-600 text-white rounded-tr-none'
+                        : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none'
+                        }`}
                     >
                       {msg.textEn}
                     </div>
@@ -1430,7 +1371,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
             </div>
 
             {/* Input form */}
-            <form 
+            <form
               onSubmit={handleSendChatMessage}
               className="p-3 bg-white border-t border-slate-100 flex items-center gap-2 shrink-0"
             >
@@ -1442,7 +1383,7 @@ export default function CustomerView({ onOpenBecomeProvider }: CustomerViewProps
                 disabled={isSendingMessage || isTypingSimulated}
                 className="flex-1 text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-slate-400 font-bold disabled:opacity-50"
               />
-              <button 
+              <button
                 type="submit"
                 disabled={isSendingMessage || isTypingSimulated || !chatInput.trim()}
                 className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"

@@ -146,20 +146,22 @@ export default function GuestView({ onOpenBecomeProvider }: GuestViewProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/50">
-                    <img src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=100&auto=format&fit=crop&q=80" className="w-10 h-10 rounded-full object-cover" alt="Ramesh" />
-                    <div>
-                      <span className="block text-xs font-bold text-white">Ramesh Kumar (Electrician)</span>
-                      <span className="block text-[10px] text-emerald-400 font-medium">Aadhaar verified • Aligarh</span>
+                  {providers.filter(p => p.aadhaarVerified).slice(0, 2).map((provider) => (
+                    <div key={provider.id} className="flex items-center gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/50">
+                      <img src={provider.avatar} className="w-10 h-10 rounded-full object-cover" alt={provider.name} />
+                      <div>
+                        <span className="block text-xs font-bold text-white">
+                          {provider.name} ({lang === 'en' 
+                            ? serviceCategories.find(c => c.id === provider.category)?.nameEn 
+                            : serviceCategories.find(c => c.id === provider.category)?.nameHi})
+                        </span>
+                        <span className="block text-[10px] text-emerald-400 font-medium">Aadhaar verified • {provider.city}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/50">
-                    <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80" className="w-10 h-10 rounded-full object-cover" alt="Suresh" />
-                    <div>
-                      <span className="block text-xs font-bold text-white">Suresh Yadav (Plumber)</span>
-                      <span className="block text-[10px] text-emerald-400 font-medium">Biometrics passed • Agra</span>
-                    </div>
-                  </div>
+                  ))}
+                  {providers.filter(p => p.aadhaarVerified).length === 0 && (
+                    <div className="text-xs text-slate-400 p-2 text-center">Loading verified experts...</div>
+                  )}
                 </div>
 
                 <div className="p-4 bg-gradient-to-r from-blue-600/30 to-indigo-600/30 border border-blue-500/20 rounded-2xl text-xs space-y-1 shadow-md">

@@ -62,7 +62,7 @@ export default function ProviderView() {
 
   // Find matching provider in database synced store
   const currentUserId = session?.user?.id;
-  const currentProvider = providers.find(p => p.id === currentUserId) || providers.find(p => p.id === 'p1') || providers[0];
+  const currentProvider = providers.find(p => p.id === currentUserId) || providers[0] || null;
 
   // Rates and settings local states
   const [rates, setRates] = useState(250);
@@ -150,56 +150,7 @@ export default function ProviderView() {
       setIsSendingMessage(false);
     }
 
-    // 3. Trigger smart simulated response from customer after 2.5 seconds
-    setIsTypingSimulated(true);
-    setTimeout(async () => {
-      let replyText = "Great! Please call me when you reach the gate or if you need directions.";
-      
-      const lower = currentText.toLowerCase();
-      if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
-        replyText = `Hello! Thank you for accepting my booking. Please bring any required wiring wires or tools.`;
-      } else if (lower.includes('where') || lower.includes('way') || lower.includes('reach') || lower.includes('locate') || lower.includes('address')) {
-        replyText = `I am at Flat 402, Royal Residency, Ramghat Road. Let me know when you cross the main chowk!`;
-      } else if (lower.includes('late') || lower.includes('delay') || lower.includes('time')) {
-        replyText = "No problem! Take your time and travel safely. See you shortly.";
-      }
-
-      const clientMsg = {
-        id: 'msg_' + Date.now() + '_sim',
-        senderId: 'customer',
-        senderName: activeChatBooking.customerName || 'Abhishek Tyagi',
-        textEn: replyText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-
-      const updatedMsgs = [...nextMsgs, clientMsg];
-      setChatMessages(updatedMsgs);
-      localStorage.setItem(`chat_${activeChatBooking.id}`, JSON.stringify(updatedMsgs));
-      setIsTypingSimulated(false);
-
-      // Trigger standard local notification
-      addNotification(
-        `New chat message from customer ${activeChatBooking.customerName || 'Abhishek'}: "${replyText}"`,
-        `ग्राहक ${activeChatBooking.customerName || 'अभिषेक'} से नया संदेश: "${replyText}"`
-      );
-
-      // Also trigger a dispatch of the simulator's response to the Pusher backend API
-      try {
-        await fetch('/api/chat/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: activeChatBooking.id,
-            senderId: 'customer',
-            senderName: activeChatBooking.customerName || 'Abhishek Tyagi',
-            textEn: replyText,
-            textHi: replyText
-          })
-        });
-      } catch (err) {
-        console.error('Failed to dispatch simulated customer response over Pusher:', err);
-      }
-    }, 2500);
+    // The chat message is now sent. We wait for a real response via Pusher.
   };
 
   // Sync settings when provider data is loaded
@@ -239,6 +190,48 @@ export default function ProviderView() {
   const completionRate = providerBookings.length > 0
     ? Math.round((completedJobs.length / providerBookings.length) * 100)
     : 100;
+
+  // Generate dynamic chart data based on completed bookings
+  const generateMonthlyData = () => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentMonthIndex = new Date().getMonth();
+    
+    // Get last 5 months including current
+    const displayMonths = [];
+    for (let i = 4; i >= 0; i--) {
+      let mIndex = currentMonthIndex - i;
+      if (mIndex < 0) mIndex += 12;
+      displayMonths.push(months[mIndex]);
+    }
+
+    const data = displayMonths.map(month => ({ month, count: 0, h: 0, active: false }));
+    data[data.length - 1].active = true;
+
+    // Count bookings per month
+    completedJobs.forEach(job => {
+      try {
+        const jobDate = new Date(job.date);
+        const jobMonth = months[jobDate.getMonth()];
+        const idx = data.findIndex(d => d.month === jobMonth);
+        if (idx !== -1) {
+          data[idx].count += 1;
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    });
+
+    // Calculate max to set height relative (h: 0-100)
+    const maxCount = Math.max(...data.map(d => d.count), 5); // min 5
+    data.forEach(d => {
+      d.h = Math.round((d.count / maxCount) * 100);
+      if (d.h < 10) d.h = 10; // min height for visibility
+    });
+
+    return data;
+  };
+  
+  const monthlyChartData = generateMonthlyData();
 
   // Accept a booking request
   const handleAcceptRequest = async (leadId: string) => {
@@ -464,6 +457,16 @@ export default function ProviderView() {
     );
   };
 
+  if (!currentProvider) {
+    return (
+      <DashboardLayout sidebar={<aside className="w-full lg:w-64 shrink-0" />}>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout sidebar={renderSidebar()}>
       <div className="space-y-6">
@@ -658,13 +661,7 @@ export default function ProviderView() {
                 
                 {/* Visual Chart */}
                 <div className="h-44 flex items-end justify-between gap-4 pt-6">
-                  {[
-                    { month: 'Jan', count: 12, h: 40 },
-                    { month: 'Feb', count: 15, h: 52 },
-                    { month: 'Mar', count: 18, h: 65 },
-                    { month: 'Apr', count: 22, h: 78 },
-                    { month: 'May', count: 28, h: 95, active: true },
-                  ].map(bar => (
+                  {monthlyChartData.map(bar => (
                     <div key={bar.month} className="flex-1 flex flex-col items-center gap-2 group">
                       <div className="w-full bg-slate-50 hover:bg-slate-100/80 rounded-xl relative flex items-end justify-center transition-colors" style={{ height: '140px' }}>
                         
