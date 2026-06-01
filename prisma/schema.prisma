@@ -111,8 +111,8 @@ model User {
   image         String?
   password      String?
   role          String    @default("CUSTOMER") // "CUSTOMER", "PROVIDER", "ADMIN"
-  walletBalance Float     @default(650.0)
-  notifications String    @default("[{\"id\":\"n1\",\"textEn\":\"Welcome to LocalFix! ₹100 added to your wallet.\",\"textHi\":\"लोकलफिक्स में आपका स्वागत है! आपके वॉलेट में ₹100 जोड़े गए हैं।\",\"time\":\"10 mins ago\",\"read\":false},{\"id\":\"n2\",\"textEn\":\"Booking request for Ramesh Kumar accepted!\",\"textHi\":\"रमेश कुमार के लिए बुकिंग अनुरोध स्वीकार कर लिया गया है!\",\"time\":\"1 hour ago\",\"read\":false}]")
+  walletBalance Float     @default(100.0)
+  notifications String    @default("[{\"id\":\"welcome\",\"textEn\":\"Welcome to LocalFix! ₹100 credit points added to your wallet.\",\"textHi\":\"लोकलफिक्स में आपका स्वागत है! आपके वॉलेट में ₹100 क्रेडिट अंक जोड़े गए हैं।\",\"time\":\"Just now\",\"read\":false}]")
   accounts      Account[]
   sessions      Session[]
 }
@@ -142,4 +142,13 @@ model ServiceCategory {
   rating        Float
   descriptionEn String
   descriptionHi String
+}
+
+model OtpVerification {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone     String?
+  email     String?
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

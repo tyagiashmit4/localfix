@@ -150,10 +150,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/otp/send', {
+      const res = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, purpose: 'login' }),
+        body: JSON.stringify({ phone }),
       });
 
       const data = await res.json();
@@ -186,10 +186,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const verifyRes = await fetch('/api/auth/otp/verify', {
+      const verifyRes = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, generatedOtp }),
+        body: JSON.stringify({ phone, otp }),
       });
 
       const verifyData = await verifyRes.json();
@@ -247,7 +247,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/signup', {
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -255,6 +255,7 @@ export default function LoginPage() {
           email: signupEmail,
           phone: signupPhone,
           password: signupPassword,
+          role: 'CUSTOMER'
         }),
       });
 

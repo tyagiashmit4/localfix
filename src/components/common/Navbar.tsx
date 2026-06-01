@@ -128,8 +128,8 @@ export default function Navbar() {
             </>
           )}
 
-          {/* SEO link — only for guests/customers */}
-          {(!session || userRole === 'CUSTOMER') && (
+          {/* SEO link — only for admin */}
+          {userRole === 'ADMIN' && (
             <Link 
               href="/seo-simulator"
               className="px-3 py-1.5 border border-dashed border-blue-500 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-all"

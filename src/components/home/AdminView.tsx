@@ -20,7 +20,8 @@ import {
   Activity,
   FileCheck,
   Zap,
-  Server
+  Server,
+  MapPin
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { Provider } from '../../app/data';
@@ -38,7 +39,7 @@ export default function AdminView() {
     updateUserProfile
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'disputes' | 'providers' | 'broadcast' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'queue' | 'disputes' | 'providers' | 'broadcast' | 'settings' | 'cities'>('overview');
   
   // Custom admin states
   const [customNotificationEn, setCustomNotificationEn] = useState('');
@@ -271,6 +272,20 @@ export default function AdminView() {
               <div className="flex items-center gap-2.5">
                 <Settings className="w-4 h-4" />
                 <span>Admin Settings</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('cities')}
+              className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+                activeTab === 'cities'
+                  ? 'bg-slate-700 text-white shadow-lg shadow-slate-800/20'
+                  : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MapPin className="w-4 h-4" />
+                <span>Cities & Locations</span>
               </div>
             </button>
           </nav>
@@ -738,6 +753,50 @@ export default function AdminView() {
                 {isSaving ? 'Saving Changes...' : 'Save Profile Changes'}
               </button>
             </form>
+          </div>
+        )}
+
+        {/* TAB 7: CITIES MANAGEMENT */}
+        {activeTab === 'cities' && (
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 space-y-4">
+            <div>
+              <h2 className="text-base font-black text-slate-900">Cities Management</h2>
+              <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Add or remove operational cities.</p>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const nameEn = formData.get('nameEn') as string;
+              const nameHi = formData.get('nameHi') as string;
+              
+              if(!nameEn || !nameHi) return;
+              
+              const res = await fetch('/api/cities', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nameEn, nameHi })
+              });
+              
+              if (res.ok) {
+                alert('City added successfully!');
+                (e.target as HTMLFormElement).reset();
+              } else {
+                alert('Failed to add city.');
+              }
+            }} className="space-y-4 max-w-xl bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <h3 className="text-xs font-extrabold text-slate-800">Add New City</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input name="nameEn" placeholder="Name (English)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                <input name="nameHi" placeholder="Name (Hindi)" className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+              </div>
+              <button type="submit" className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-md cursor-pointer transition-colors w-full">Add City</button>
+            </form>
+            
+            {/* Note: In a real app, you would fetch and list the existing cities here with a delete button */}
+            <p className="text-xs text-slate-400 font-bold mt-4 border-t border-slate-100 pt-4">
+              Cities are fetched directly from your MongoDB database and will appear instantly across the live platform.
+            </p>
           </div>
         )}
 

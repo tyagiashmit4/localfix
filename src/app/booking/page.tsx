@@ -98,31 +98,73 @@ export default function BookingPage() {
 
   const finalizePayment = async () => {
     const finalBill = Math.max(50, selectedProvider.pricePerHr - promoDiscount);
-    const newBooking: Booking = {
-      id: currentBookingId,
-      customerName: 'Abhishek Tyagi',
-      customerPhone: '+91 99887 76655',
-      customerAddress: bookingAddress,
-      city: selectedCity,
-      serviceCategory: selectedProvider.category,
-      providerId: selectedProvider.id,
-      providerName: selectedProvider.name,
-      providerAvatar: selectedProvider.avatar,
-      date: bookingDate,
-      timeSlot: bookingTime,
-      status: 'pending',
-      price: finalBill,
-      notes: bookingNotes,
-      paymentStatus: 'paid'
-    };
+    
+    try {
+      // 1. Get Order ID from backend
+      const res = await fetch('/api/payments/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: finalBill, currency: 'INR' })
+      });
+      const order = await res.json();
+      if (!res.ok) throw new Error(order.error || 'Failed to create order');
 
-    await createBooking(newBooking);
-    addNotification(
-      `🎉 Service booked with ${selectedProvider.name}! ID: ${currentBookingId}`,
-      `🎉 ${selectedProvider.name} के साथ सेवा बुक की गई! आईडी: ${currentBookingId}`
-    );
+      // 2. Load script
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onerror = () => { addNotification('Razorpay SDK failed to load.', 'रेजरपे लोड करने में विफल रहा।'); };
+      script.onload = () => {
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_dummy', 
+          amount: order.amount,
+          currency: order.currency,
+          name: 'LocalFix India',
+          description: `Booking for ${selectedProvider.name}`,
+          order_id: order.id,
+          handler: async function (response: any) {
+            // Payment success!
+            const newBooking: Booking = {
+              id: currentBookingId,
+              customerName: 'Abhishek Tyagi',
+              customerPhone: '+91 99887 76655',
+              customerAddress: bookingAddress,
+              city: selectedCity,
+              serviceCategory: selectedProvider.category,
+              providerId: selectedProvider.id,
+              providerName: selectedProvider.name,
+              providerAvatar: selectedProvider.avatar,
+              date: bookingDate,
+              timeSlot: bookingTime,
+              status: 'pending',
+              price: finalBill,
+              notes: bookingNotes,
+              paymentStatus: 'paid'
+            };
 
-    setBookingStep(3);
+            await createBooking(newBooking);
+            addNotification(
+              `🎉 Service booked with ${selectedProvider.name}! ID: ${currentBookingId}`,
+              `🎉 ${selectedProvider.name} के साथ सेवा बुक की गई! आईडी: ${currentBookingId}`
+            );
+            setBookingStep(3);
+          },
+          prefill: {
+            name: 'Abhishek Tyagi',
+            contact: '9988776655'
+          },
+          theme: { color: '#2563eb' }
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function () {
+          addNotification('Payment failed. Please try again.', 'भुगतान विफल रहा। कृपया पुनः प्रयास करें।');
+        });
+        rzp.open();
+      };
+      document.body.appendChild(script);
+    } catch (error) {
+      console.error(error);
+      addNotification('Error initiating payment.', 'भुगतान आरंभ करने में त्रुटि।');
+    }
   };
 
   const handleGoToDashboard = () => {
