@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { signOut } from 'next-auth/react';
 import { 
   Home, 
   Activity, 
@@ -18,7 +19,12 @@ import {
   Lock,
   PhoneCall,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Droplet,
+  ShieldCheck,
+  Check,
+  X,
+  ChevronRight
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { Booking } from '../../app/data';
@@ -26,6 +32,90 @@ import { Booking } from '../../app/data';
 export default function SOSPortal() {
   const router = useRouter();
   const [selectedEmergency, setSelectedEmergency] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ messageEn: string; messageHi: string } | null>(null);
+  const [showSafetyScreen, setShowSafetyScreen] = useState(false);
+  const [safetyProtocols, setSafetyProtocols] = useState<any[]>([]);
+  const [loadingSafety, setLoadingSafety] = useState(false);
+  const [safetyError, setSafetyError] = useState<string | null>(null);
+  const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({});
+  const [activeSafetyCategory, setActiveSafetyCategory] = useState<string>('all');
+
+  // Fetch Safety Protocols from API
+  useEffect(() => {
+    if (showSafetyScreen) {
+      setLoadingSafety(true);
+      setSafetyError(null);
+      fetch('/api/safety-protocols')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setSafetyProtocols(data.protocols);
+          } else {
+            setSafetyError('Failed to load safety protocols.');
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          setSafetyError('Failed to fetch safety protocols.');
+        })
+        .finally(() => {
+          setLoadingSafety(false);
+        });
+    }
+  }, [showSafetyScreen]);
+
+  const toggleCheckedStep = (stepKey: string) => {
+    setCheckedSteps((prev) => ({
+      ...prev,
+      [stepKey]: !prev[stepKey]
+    }));
+  };
+
+  const handleSafetyProtocols = () => {
+    // 1. Store notification in dynamic profile db
+    addNotification(
+      'Safety protocols active. Emergency services are on standby.',
+      'सुरक्षा प्रोटोकॉल सक्रिय हैं। आपातकालीन सेवाएं तैयार हैं।'
+    );
+
+    // 2. Set visual in-app toast state
+    setToast({
+      messageEn: 'Safety protocols active. Emergency services are on standby.',
+      messageHi: 'सुरक्षा प्रोटोकॉल सक्रिय हैं। आपातकालीन सेवाएं तैयार हैं।'
+    });
+
+    // 3. Open full-screen safety dashboard screen
+    setShowSafetyScreen(true);
+
+    // 4. Trigger native browser local notification (if granted)
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification('LocalFix SOS Safety Active', {
+          body: 'Safety protocols are active. Emergency services are on standby.',
+          icon: '/favicon.ico',
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            new Notification('LocalFix SOS Safety Active', {
+              body: 'Safety protocols are active. Emergency services are on standby.',
+              icon: '/favicon.ico',
+            });
+          }
+        });
+      }
+    }
+  };
+
+  // Auto close toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   
   const {
     lang,
@@ -143,7 +233,7 @@ export default function SOSPortal() {
               </div>
             </div>
           </div>
-          <button onClick={() => router.push('/dashboard')} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl">
+          <button onClick={() => router.push('/?tab=bookings')} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl">
             Track Live Dispatch
           </button>
         </div>
@@ -171,13 +261,13 @@ export default function SOSPortal() {
             <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white shadow-sm shadow-blue-500/20">
               <Activity className="w-5 h-5" /> My Emergencies
             </Link>
-            <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+            <Link href="/?tab=bookings" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
               <MapPin className="w-5 h-5" /> Professional Tracking
             </Link>
-            <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+            <Link href="/?tab=bookings" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
               <Clock className="w-5 h-5" /> Service History
             </Link>
-            <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+            <Link href="/?tab=settings" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
               <Settings className="w-5 h-5" /> Settings
             </Link>
           </nav>
@@ -187,12 +277,12 @@ export default function SOSPortal() {
           <button onClick={handleDispatch} className="w-full flex items-center justify-center gap-2 px-3 py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-sm font-bold shadow-md transition-colors cursor-pointer">
             Call Dispatch
           </button>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+          <button onClick={handleSafetyProtocols} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer">
             <ShieldAlert className="w-5 h-5" /> Safety Protocols
-          </Link>
-          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors">
+          </button>
+          <button onClick={() => signOut({ callbackUrl: '/login' })} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer">
             <LogOut className="w-5 h-5" /> Logout
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -319,6 +409,231 @@ export default function SOSPortal() {
           </div>
         </div>
       </main>
+
+      {/* Visual In-App Toast Notification */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 pointer-events-auto transition-all duration-300 transform scale-100 opacity-100">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white rounded-2xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.25)] border border-slate-800 flex items-start gap-3.5 relative overflow-hidden ring-1 ring-white/10">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+              <ShieldAlert className="w-5 h-5 animate-pulse text-emerald-400" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <h5 className="font-extrabold text-sm text-white tracking-tight flex items-center gap-2">
+                {lang === 'en' ? 'Safety Protocols Active' : 'सुरक्षा प्रोटोकॉल सक्रिय'}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </h5>
+              <p className="text-[11px] text-slate-300 leading-relaxed font-semibold">
+                {lang === 'en' ? toast.messageEn : toast.messageHi}
+              </p>
+            </div>
+            <button 
+              onClick={() => setToast(null)}
+              className="text-slate-400 hover:text-white text-xs font-bold px-2 py-1 rounded-lg hover:bg-slate-800 transition-all active:scale-95 shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SCREEN SAFETY PROTOCOLS SCREEN OVERLAY */}
+      {showSafetyScreen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex justify-end animate-in fade-in duration-300">
+          <div className="w-full max-w-2xl bg-white h-full flex flex-col shadow-2xl relative animate-in slide-in-from-right duration-300">
+            
+            {/* Pulsing red SOS accent bar at top */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-red-600 via-orange-500 to-red-600 animate-pulse"></div>
+
+            {/* HEADER */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shadow-inner danger-glow">
+                  <ShieldAlert className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    {lang === 'en' ? 'SOS Safety Isolation Guides' : 'एसओएस सुरक्षा अलगाव दिशानिर्देश'}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold tracking-wide uppercase mt-0.5">
+                    {lang === 'en' ? 'Real-time API Secured guidelines' : 'वास्तविक समय एपीआई सुरक्षित दिशानिर्देश'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowSafetyScreen(false)}
+                className="p-2.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer border border-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* CATEGORY SELECTOR TABS */}
+            <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-100 flex gap-2 overflow-x-auto no-scrollbar">
+              {['all', 'electrical', 'gas', 'plumbing', 'general'].map((cat) => {
+                const labelEn = cat === 'all' ? 'All Guides' : cat === 'electrical' ? 'Electrical' : cat === 'gas' ? 'Gas Leak' : cat === 'plumbing' ? 'Plumbing' : 'Security Checks';
+                const labelHi = cat === 'all' ? 'सभी मार्गदर्शिकाएँ' : cat === 'electrical' ? 'बिजली' : cat === 'gas' ? 'गैस रिसाव' : cat === 'plumbing' ? 'नलसाजी' : 'सुरक्षा जाँच';
+                const isActive = activeSafetyCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveSafetyCategory(cat)}
+                    className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-slate-950 text-white shadow-md' 
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {lang === 'en' ? labelEn : labelHi}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* DYNAMIC SCROLLABLE LIST OF PROTOCOLS */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {loadingSafety ? (
+                // SKELETON LOADERS
+                <div className="space-y-6 animate-pulse">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-slate-200 rounded-2xl"></div>
+                        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 bg-slate-200 rounded w-full"></div>
+                        <div className="h-3 bg-slate-200 rounded w-5/6"></div>
+                        <div className="h-3 bg-slate-200 rounded w-4/5"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : safetyError ? (
+                // ERROR VIEW
+                <div className="py-12 text-center space-y-3">
+                  <div className="inline-flex p-4 bg-red-50 text-red-600 rounded-full">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-bold text-slate-800">{safetyError}</h4>
+                  <button 
+                    onClick={() => {
+                      setLoadingSafety(true);
+                      fetch('/api/safety-protocols')
+                        .then(res => res.json())
+                        .then(d => setSafetyProtocols(d.protocols))
+                        .catch(() => setSafetyError('Failed to load safety protocols.'))
+                        .finally(() => setLoadingSafety(false));
+                    }}
+                    className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs"
+                  >
+                    Retry Loading
+                  </button>
+                </div>
+              ) : (
+                // GUIDELINES LISTING
+                safetyProtocols
+                  .filter(p => activeSafetyCategory === 'all' || p.category === activeSafetyCategory)
+                  .map((proto) => {
+                    // Helper to get matching Lucide icon dynamic rendering
+                    const renderProtoIcon = (iconName: string) => {
+                      const props = { className: "w-5 h-5" };
+                      if (iconName === 'Zap') return <Zap {...props} className="w-5 h-5 text-amber-500" />;
+                      if (iconName === 'Flame') return <Flame {...props} className="w-5 h-5 text-red-500" />;
+                      if (iconName === 'Droplet') return <Droplet {...props} className="w-5 h-5 text-blue-500" />;
+                      return <ShieldCheck {...props} className="w-5 h-5 text-emerald-500" />;
+                    };
+
+                    const steps = lang === 'en' ? proto.stepsEn : proto.stepsHi;
+                    const title = lang === 'en' ? proto.titleEn : proto.titleHi;
+                    
+                    const severityColors = 
+                      proto.severity === 'critical' ? 'bg-red-50 text-red-700 border-red-200/50' : 
+                      proto.severity === 'high' ? 'bg-orange-50 text-orange-700 border-orange-200/50' : 
+                      'bg-blue-50 text-blue-700 border-blue-200/50';
+
+                    return (
+                      <div 
+                        key={proto.id}
+                        className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                      >
+                        {/* Title Section */}
+                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-slate-100">
+                              {renderProtoIcon(proto.icon)}
+                            </div>
+                            <h4 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{title}</h4>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border tracking-wider ${severityColors}`}>
+                            {proto.severity}
+                          </span>
+                        </div>
+
+                        {/* Interactive Steps Checklist */}
+                        <div className="p-5 space-y-4">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                            {lang === 'en' ? 'Actions Checklist' : 'कार्रवाई चेकलिस्ट'}
+                          </p>
+                          {steps.map((step: string, idx: number) => {
+                            const stepKey = `${proto.id}_${idx}`;
+                            const isChecked = !!checkedSteps[stepKey];
+                            return (
+                              <div 
+                                key={idx}
+                                onClick={() => toggleCheckedStep(stepKey)}
+                                className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer active:scale-[0.99] select-none ${
+                                  isChecked 
+                                    ? 'bg-emerald-50/40 border-emerald-300/60 text-emerald-900 shadow-sm' 
+                                    : 'bg-slate-50/50 border-slate-150 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className={`w-5 h-5 shrink-0 rounded-lg flex items-center justify-center border transition-all ${
+                                  isChecked 
+                                    ? 'bg-emerald-500 border-emerald-500 text-white scale-110 shadow-sm shadow-emerald-500/20' 
+                                    : 'bg-white border-slate-300 text-transparent'
+                                }`}>
+                                  <Check className="w-3.5 h-3.5 stroke-[3.5]" />
+                                </div>
+                                <span className={`text-xs font-semibold leading-relaxed transition-all ${
+                                  isChecked ? 'line-through text-emerald-800/60 font-medium' : ''
+                                }`}>
+                                  {step}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* SAFETY ASSURANCE FOOTER */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50/80 space-y-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></div>
+                <p className="text-xs text-slate-500 font-bold leading-normal">
+                  {lang === 'en' 
+                    ? 'Emergency services have been isolated for your sector. Help is actively dispatched.' 
+                    : 'आपके क्षेत्र के लिए आपातकालीन सेवाएं सक्रिय कर दी गई हैं। सहायता भेजी जा रही है।'}
+                </p>
+              </div>
+              <a 
+                href="tel:+919988776655" 
+                className="w-full flex items-center justify-center gap-2 py-4 bg-red-700 hover:bg-red-800 text-white font-black text-sm rounded-2xl shadow-lg transition-all transform active:scale-95 cursor-pointer shadow-red-700/25"
+              >
+                <PhoneCall className="w-4 h-4" />
+                {lang === 'en' ? 'Direct Hotline: Call Emergency Desk' : 'डायरेक्ट हॉटलाइन: इमरजेंसी डेस्क पर कॉल करें'}
+              </a>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

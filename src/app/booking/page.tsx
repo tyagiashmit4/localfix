@@ -193,7 +193,7 @@ export default function BookingPage() {
 
   const handleGoToDashboard = () => {
     setBookingStep(1);
-    router.push('/dashboard');
+    router.push('/?tab=bookings');
   };
 
   const handleBackToMarketplace = () => {

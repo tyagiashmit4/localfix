@@ -92,7 +92,7 @@ export default function EmergencyModal() {
     setEmergencyActive(false);
     setEmergencyStep('idle');
     setEmergencyProgress(0);
-    router.push('/dashboard');
+    router.push('/?tab=bookings');
   };
 
   const handleClose = () => {
