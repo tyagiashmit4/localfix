@@ -23,18 +23,28 @@ import {
   Droplet,
   ShieldCheck,
   Check,
-  X,
-  ChevronRight
+  X
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { Booking } from '../../app/data';
+
+interface SafetyProtocol {
+  id: string;
+  category: string;
+  titleEn: string;
+  titleHi: string;
+  icon: string;
+  stepsEn: string[];
+  stepsHi: string[];
+  severity: 'critical' | 'high' | 'medium';
+}
 
 export default function SOSPortal() {
   const router = useRouter();
   const [selectedEmergency, setSelectedEmergency] = useState<string | null>(null);
   const [toast, setToast] = useState<{ messageEn: string; messageHi: string } | null>(null);
   const [showSafetyScreen, setShowSafetyScreen] = useState(false);
-  const [safetyProtocols, setSafetyProtocols] = useState<any[]>([]);
+  const [safetyProtocols, setSafetyProtocols] = useState<SafetyProtocol[]>([]);
   const [loadingSafety, setLoadingSafety] = useState(false);
   const [safetyError, setSafetyError] = useState<string | null>(null);
   const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({});
